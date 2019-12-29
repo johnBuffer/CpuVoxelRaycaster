@@ -3,16 +3,7 @@
 #include <stdint.h>
 #include "volumetric.hpp"
 #include <array>
-
-
-struct Cell
-{
-	Cell()
-		: empty(true)
-	{}
-
-	bool empty;
-};
+#include "cell.hpp"
 
 
 template<int32_t X, int32_t Y, int32_t Z>
@@ -23,7 +14,7 @@ public:
 
 	HitPoint cast_ray(const glm::vec3& position, const glm::vec3& direction) const override;
 
-	void setCell(bool empty, uint32_t x, uint32_t y, uint32_t z);
+	void setCell(Cell::Type type, uint32_t x, uint32_t y, uint32_t z);
 
 private:
 	const uint32_t m_cell_size;
@@ -72,8 +63,7 @@ inline HitPoint Grid3D<X, Y, Z>::cast_ray(const glm::vec3& position, const glm::
 
 	uint8_t hit_side;
 
-	while (cell_x >= 0 && cell_y >= 0 && cell_z >= 0 && cell_x < X && cell_y < Y && cell_z < Z)
-	{
+	while (cell_x >= 0 && cell_y >= 0 && cell_z >= 0 && cell_x < X && cell_y < Y && cell_z < Z) {
 		float t_max_min;
 		if (t_max_x < t_max_y) {
 			if (t_max_x < t_max_z) {
@@ -105,12 +95,13 @@ inline HitPoint Grid3D<X, Y, Z>::cast_ray(const glm::vec3& position, const glm::
 		}
 
 		if (cell_x >= 0 && cell_y >= 0 && cell_z >= 0 && cell_x < X && cell_y < Y && cell_z < Z) {
-			if (!m_cells[cell_x][cell_y][cell_z].empty) {
+			const Cell& cell = m_cells[cell_x][cell_y][cell_z];
+			if (cell.type != Cell::Empty) {
 				float hit_x = position.x + t_max_min * direction.x;
 				float hit_y = position.y + t_max_min * direction.y;
 				float hit_z = position.z + t_max_min * direction.z;
 
-				point.hit = true, point.light_intensity = 0.5f * hit_side;
+				point.type = cell.type;
 				point.position = glm::vec3(hit_x, hit_y, hit_z);
 
 				if (hit_side == 0) {
@@ -130,7 +121,7 @@ inline HitPoint Grid3D<X, Y, Z>::cast_ray(const glm::vec3& position, const glm::
 }
 
 template<int32_t X, int32_t Y, int32_t Z>
-inline void Grid3D<X, Y, Z>::setCell(bool empty, uint32_t x, uint32_t y, uint32_t z)
+inline void Grid3D<X, Y, Z>::setCell(Cell::Type type, uint32_t x, uint32_t y, uint32_t z)
 {
-	m_cells[x][y][z].empty = empty;
+	m_cells[x][y][z].type = type;
 }

@@ -1,24 +1,23 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include "cell.hpp"
 
 
 struct HitPoint
 {
 	HitPoint()
-		: hit(false)
-		, light_intensity(0.0f)
+		: type(Cell::Empty)
 	{}
 
 	HitPoint(bool hit_, float light_intensity_)
-		: hit(hit_)
-		, light_intensity(light_intensity_)
+		: type(Cell::Empty)
 	{}
 
-	bool hit;
-	float light_intensity;
 	glm::vec3 position;
 	glm::vec3 normal;
+
+	Cell::Type type;
 };
 
 

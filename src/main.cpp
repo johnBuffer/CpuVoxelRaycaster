@@ -7,6 +7,7 @@
 #include "utils.hpp"
 #include "swarm.hpp"
 #include "FastNoise.h"
+#include "raycaster.hpp"
 
 
 constexpr float PI = 3.141592653;
@@ -14,21 +15,20 @@ constexpr float PI = 3.141592653;
 
 int32_t main()
 {
-	constexpr uint32_t win_width = 1600;
-	constexpr uint32_t win_height = 900;
-	sf::ContextSettings settings;
-	settings.antialiasingLevel = 4;
+	constexpr uint32_t win_width = 1280;
+	constexpr uint32_t win_height = 720;
 
-	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxel", sf::Style::Default, settings);
+	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxel", sf::Style::Default);
 	window.setMouseCursorVisible(false);
 
-	constexpr float render_ratio = 1.0f;
-	constexpr uint32_t RENDER_WIDTH  = win_width  * render_ratio;
-	constexpr uint32_t RENDER_HEIGHT = win_height * render_ratio;
+	constexpr float render_scale = 0.75f;
+	constexpr uint32_t RENDER_WIDTH  = win_width  * render_scale;
+	constexpr uint32_t RENDER_HEIGHT = win_height * render_scale;
 	sf::RenderTexture render_tex;
 	sf::RenderTexture denoised_tex;
 	render_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
 	denoised_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
+	render_tex.setSmooth(true);
 
 	float movement_speed = 3.0f;
 	float camera_horizontal_angle = 0;
@@ -49,10 +49,12 @@ int32_t main()
 	for (int x = 0; x < grid_size_x; x++) {
 		for (int z = 0; z < grid_size_z; z++) {
 			int max_height = grid_size_y;
-			int height = 30.0f * myNoise.GetNoise(x, z) + 10;
+			int height = 60.0f * myNoise.GetNoise(x, z);
 
-			for (int y(0); y < std::min(max_height, height); ++y) {
-				grid.setCell(false, x, grid_size_y - y - 1, z);
+			grid.setCell(Cell::Mirror, x, grid_size_y - 1, z);
+
+			for (int y(1); y < std::min(max_height, height); ++y) {
+				grid.setCell(Cell::Solid, x, grid_size_y - y - 1, z);
 			}
 		}
 	}
@@ -61,7 +63,9 @@ int32_t main()
 		grid.setCell(false, rand()% grid_size_x, rand() % grid_size_y, rand() % grid_size_z);
 	}*/
 
-	sf::VertexArray screen_pixels(sf::Points, win_height * win_width);
+	sf::VertexArray screen_pixels(sf::Points, RENDER_WIDTH * RENDER_HEIGHT);
+
+	RayCaster raycaser(grid, screen_pixels, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
 
 	swrm::Swarm swarm(16);
 
@@ -79,7 +83,7 @@ int32_t main()
 		sf::Clock frame_clock;
 		const sf::Vector2i mouse_pos = sf::Mouse::getPosition(window);
 
-		const float mouse_sensitivity = 0.01f;
+		const float mouse_sensitivity = 0.005f;
 		camera_horizontal_angle -= mouse_sensitivity * (win_width  * 0.5f - mouse_pos.x);
 		camera_vertical_angle   += mouse_sensitivity * (win_height * 0.5f - mouse_pos.y);
 
@@ -135,57 +139,25 @@ int32_t main()
 			}
 		}
 		
-		const glm::vec3 light_position = glm::rotate(glm::vec3(0.0f, -500.0f, 1000.0f), 0.2f * time, glm::vec3(0.0f, 1.0f, 0.0f));
+		const glm::vec3 light_position = glm::vec3(grid_size_x*0.5f, 0.0f, grid_size_z*0.5f) + glm::rotate(glm::vec3(0.0f, 50.0f, grid_size_x*0.5f), 0.2f * time, glm::vec3(0.0f, 1.0f, 0.0f));
+		raycaser.setLightPosition(light_position);
 
 		auto group = swarm.execute([&](uint32_t thread_id, uint32_t max_thread) {
-			const uint32_t area_width = win_width / 4;
-			const uint32_t area_height = win_height / 4;
+			const uint32_t area_width = RENDER_WIDTH / 4;
+			const uint32_t area_height = RENDER_HEIGHT / 4;
 			const uint32_t start_x = thread_id % 4;
 			const uint32_t start_y = thread_id / 4;
 
-			for (uint32_t pxl_count(10000); pxl_count--;) {
-				const float x = rand() % area_width  + start_x * area_width;
-				const float y = rand() % area_height + start_y * area_height;
+			for (int x(start_x * area_width); x < (start_x + 1) * area_width; ++x) {
+				for (int y(start_y * area_height); y < (start_y + 1) * area_height; ++y) {
+					//const float x = rand() % area_width + start_x * area_width;
+					//const float y = rand() % area_height + start_y * area_height;
 
-				const glm::vec3 screen_position(x, y, 0.0f);
-				glm::vec3 ray = glm::rotate(screen_position - camera_origin, camera_vertical_angle, glm::vec3(1.0f, 0.0f, 0.0f));
-				ray = glm::rotate(ray, camera_horizontal_angle, glm::vec3(0.0f, 1.0f, 0.0f));
+					const glm::vec3 screen_position(x, y, 0.0f);
+					glm::vec3 ray = glm::rotate(screen_position - camera_origin, camera_vertical_angle, glm::vec3(1.0f, 0.0f, 0.0f));
+					ray = glm::rotate(ray, camera_horizontal_angle, glm::vec3(0.0f, 1.0f, 0.0f));
 
-				const HitPoint intersection = grid.cast_ray(start, ray);
-
-				screen_pixels[x * win_height + y].position = sf::Vector2f(x, y);
-				if (intersection.hit) {
-					sf::Color color;
-					if (intersection.normal.x) {
-						color = sf::Color::Red;
-					}
-					else if (intersection.normal.y) {
-						color = sf::Color::Green;
-					}
-					else if (intersection.normal.z) {
-						color = sf::Color::Blue;
-					}
-
-					constexpr float eps = 0.001f;
-						
-						
-					const glm::vec3 hit_light = glm::normalize(light_position - intersection.position);
-					const HitPoint light_ray = grid.cast_ray(intersection.position + eps * intersection.normal, hit_light);
-
-					float light_intensity = 0.2f;
-
-					if (!light_ray.hit) {
-						light_intensity = std::max(0.2f, glm::dot(intersection.normal, hit_light));
-					}
-
-					color.r *= light_intensity;
-					color.g *= light_intensity;
-					color.b *= light_intensity;
-						
-					screen_pixels[x * win_height + y].color = color;
-				}
-				else {
-					screen_pixels[x * win_height + y].color = sf::Color::Black;
+					raycaser.cast_ray(sf::Vector2i(x, y), start, glm::normalize(ray), time);
 				}
 			}
 		}, 16);
@@ -197,18 +169,10 @@ int32_t main()
 		render_tex.draw(sf::Sprite(denoised_tex.getTexture()));
 		render_tex.draw(screen_pixels);
 		render_tex.display();
-
-		if (use_denoise) {
-			for (uint32_t i(2); i--;) {
-				denoised_tex.draw(sf::Sprite(render_tex.getTexture()), &shader);
-				denoised_tex.display();
-
-				render_tex.draw(sf::Sprite(denoised_tex.getTexture()));
-				render_tex.display();
-			}
-		}
-			
-		window.draw(sf::Sprite(render_tex.getTexture()));
+		
+		sf::Sprite render_sprite(render_tex.getTexture());
+		render_sprite.setScale(1.0f / render_scale, 1.0f / render_scale);
+		window.draw(render_sprite);
 		window.display();
 
 		time += frame_clock.getElapsedTime().asSeconds();
