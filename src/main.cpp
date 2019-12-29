@@ -27,17 +27,18 @@ int32_t main()
 	sf::RenderTexture render_tex;
 	render_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
 
-	float movement_speed = 0.5f;
+	float movement_speed = 3.0f;
 	float camera_horizontal_angle = 0;
 	float camera_vertical_angle = 0;
 
 	glm::vec3 start(10, 10, 10);
 	const glm::vec3 camera_origin(float(RENDER_WIDTH) * 0.5f, float(RENDER_HEIGHT) * 0.5f, -0.75f * float(RENDER_WIDTH));
 	
-	constexpr int32_t grid_size_x = 64;
-	constexpr int32_t grid_size_y = 64;
-	constexpr int32_t grid_size_z = 64;
-	Grid3D<grid_size_x, grid_size_y, grid_size_z> grid;
+	constexpr int32_t grid_size_x = 128;
+	constexpr int32_t grid_size_y = 128;
+	constexpr int32_t grid_size_z = 128;
+	Grid3D<grid_size_x, grid_size_y, grid_size_z>* grid_raw = new Grid3D<grid_size_x, grid_size_y, grid_size_z>();
+	Grid3D<grid_size_x, grid_size_y, grid_size_z>& grid = *grid_raw;
 
 	FastNoise myNoise; // Create a FastNoise object
 	myNoise.SetNoiseType(FastNoise::SimplexFractal); // Set the desired noise type
@@ -45,7 +46,7 @@ int32_t main()
 	for (int x = 0; x < grid_size_x; x++) {
 		for (int z = 0; z < grid_size_z; z++) {
 			int max_height = grid_size_y;
-			int height = 40.0f * myNoise.GetNoise(x, z) + 10;
+			int height = 30.0f * myNoise.GetNoise(x, z) + 10;
 
 			for (int y(0); y < std::min(max_height, height); ++y) {
 				grid.setCell(false, x, grid_size_y - y - 1, z);
@@ -53,9 +54,8 @@ int32_t main()
 		}
 	}
 
-	/*for (int i(520); i--;)
-	{
-		grid.setCell(false, rand()% grid_size, rand() % grid_size, rand() % grid_size);
+	/*for (int i(520); i--;) {
+		grid.setCell(false, rand()% grid_size_x, rand() % grid_size_y, rand() % grid_size_z);
 	}*/
 
 	sf::VertexArray screen_pixels(sf::Points, win_height * win_width);
@@ -127,7 +127,7 @@ int32_t main()
 			}
 		}
 		
-		const glm::vec3 light_position = glm::rotate(glm::vec3(0.0f, 0.0f, 100.0f), 0.2f * time, glm::vec3(0.0f, 1.0f, 0.0f));
+		const glm::vec3 light_position = glm::rotate(glm::vec3(0.0f, -1000.0f, 1000.0f), 0.2f * time, glm::vec3(0.0f, 1.0f, 0.0f));
 
 		auto group = swarm.execute([&](uint32_t thread_id, uint32_t max_thread) {
 			const uint32_t area_width = win_width / 4;
