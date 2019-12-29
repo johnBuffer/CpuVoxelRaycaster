@@ -72,7 +72,7 @@ int32_t main()
 	sf::Shader shader;
 	shader.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/median_3.frag", sf::Shader::Fragment);
 
-	bool use_denoise = true;
+	bool use_denoise = false;
 
 	while (window.isOpen())
 	{
@@ -143,49 +143,55 @@ int32_t main()
 			const uint32_t start_x = thread_id % 4;
 			const uint32_t start_y = thread_id / 4;
 
-			for (uint32_t pxl_count(10000); pxl_count--;) {
-				const float x = rand() % area_width  + start_x * area_width;
-				const float y = rand() % area_height + start_y * area_height;
+			uint32_t i(0);
+			for (int x(start_x * area_width); x < (start_x + 1) * area_width; ++x) {
+				for (int y(start_y * area_height); y < (start_y + 1) * area_height; ++y) {
+					++i;
+					const glm::vec3 screen_position(x, y, 0.0f);
+					screen_pixels[x * win_height + y].position = sf::Vector2f(x, y);
 
-				const glm::vec3 screen_position(x, y, 0.0f);
-				glm::vec3 ray = glm::rotate(screen_position - camera_origin, camera_vertical_angle, glm::vec3(1.0f, 0.0f, 0.0f));
-				ray = glm::rotate(ray, camera_horizontal_angle, glm::vec3(0.0f, 1.0f, 0.0f));
-
-				const HitPoint intersection = grid.cast_ray(start, ray);
-
-				screen_pixels[x * win_height + y].position = sf::Vector2f(x, y);
-				if (intersection.hit) {
-					sf::Color color;
-					if (intersection.normal.x) {
-						color = sf::Color::Red;
+					if (i % 4 == 0) {
+						screen_pixels[x * win_height + y].color = sf::Color::Black;
+						continue;
 					}
-					else if (intersection.normal.y) {
-						color = sf::Color::Green;
+					
+					glm::vec3 ray = glm::rotate(screen_position - camera_origin, camera_vertical_angle, glm::vec3(1.0f, 0.0f, 0.0f));
+					ray = glm::rotate(ray, camera_horizontal_angle, glm::vec3(0.0f, 1.0f, 0.0f));
+
+					const HitPoint intersection = grid.cast_ray(start, ray);
+
+					if (intersection.hit) {
+						sf::Color color;
+						if (intersection.normal.x) {
+							color = sf::Color::Red;
+						}
+						else if (intersection.normal.y) {
+							color = sf::Color::Green;
+						}
+						else if (intersection.normal.z) {
+							color = sf::Color::Blue;
+						}
+
+						constexpr float eps = 0.001f;
+
+						const glm::vec3 hit_light = glm::normalize(light_position - intersection.position);
+						const HitPoint light_ray = grid.cast_ray(intersection.position + eps * intersection.normal, hit_light);
+
+						float light_intensity = 0.2f;
+
+						if (!light_ray.hit) {
+							light_intensity = std::max(0.2f, glm::dot(intersection.normal, hit_light));
+						}
+
+						color.r *= light_intensity;
+						color.g *= light_intensity;
+						color.b *= light_intensity;
+
+						screen_pixels[x * win_height + y].color = color;
 					}
-					else if (intersection.normal.z) {
-						color = sf::Color::Blue;
+					else {
+						screen_pixels[x * win_height + y].color = sf::Color::Black;
 					}
-
-					constexpr float eps = 0.001f;
-						
-						
-					const glm::vec3 hit_light = glm::normalize(light_position - intersection.position);
-					const HitPoint light_ray = grid.cast_ray(intersection.position + eps * intersection.normal, hit_light);
-
-					float light_intensity = 0.2f;
-
-					if (!light_ray.hit) {
-						light_intensity = std::max(0.2f, glm::dot(intersection.normal, hit_light));
-					}
-
-					color.r *= light_intensity;
-					color.g *= light_intensity;
-					color.b *= light_intensity;
-						
-					screen_pixels[x * win_height + y].color = color;
-				}
-				else {
-					screen_pixels[x * win_height + y].color = sf::Color::Black;
 				}
 			}
 		}, 16);
@@ -194,7 +200,8 @@ int32_t main()
 
 		window.clear(sf::Color::Black);
 
-		render_tex.draw(sf::Sprite(denoised_tex.getTexture()));
+		render_tex.clear();
+		//render_tex.draw(sf::Sprite(denoised_tex.getTexture()));
 		render_tex.draw(screen_pixels);
 		render_tex.display();
 
