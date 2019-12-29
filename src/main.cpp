@@ -15,13 +15,12 @@ constexpr float PI = 3.141592653;
 
 int32_t main()
 {
-	constexpr uint32_t win_width = 1280;
-	constexpr uint32_t win_height = 720;
+	constexpr uint32_t win_width = 1600;
+	constexpr uint32_t win_height = 900;
 
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxel", sf::Style::Default);
-	window.setMouseCursorVisible(false);
 
-	constexpr float render_scale = 0.75f;
+	constexpr float render_scale = 1.0f;
 	constexpr uint32_t RENDER_WIDTH  = win_width  * render_scale;
 	constexpr uint32_t RENDER_HEIGHT = win_height * render_scale;
 	sf::RenderTexture render_tex;
@@ -37,9 +36,9 @@ int32_t main()
 	glm::vec3 start(10, 10, 10);
 	const glm::vec3 camera_origin(float(RENDER_WIDTH) * 0.5f, float(RENDER_HEIGHT) * 0.5f, -0.75f * float(RENDER_WIDTH));
 	
-	constexpr int32_t grid_size_x = 128;
+	constexpr int32_t grid_size_x = 256;
 	constexpr int32_t grid_size_y = 128;
-	constexpr int32_t grid_size_z = 128;
+	constexpr int32_t grid_size_z = 256;
 	Grid3D<grid_size_x, grid_size_y, grid_size_z>* grid_raw = new Grid3D<grid_size_x, grid_size_y, grid_size_z>();
 	Grid3D<grid_size_x, grid_size_y, grid_size_z>& grid = *grid_raw;
 
@@ -76,6 +75,7 @@ int32_t main()
 	sf::Shader shader;
 	shader.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/median_3.frag", sf::Shader::Fragment);
 
+	bool mouse_control = true;
 	bool use_denoise = true;
 
 	while (window.isOpen())
@@ -83,21 +83,22 @@ int32_t main()
 		sf::Clock frame_clock;
 		const sf::Vector2i mouse_pos = sf::Mouse::getPosition(window);
 
-		const float mouse_sensitivity = 0.005f;
-		camera_horizontal_angle -= mouse_sensitivity * (win_width  * 0.5f - mouse_pos.x);
-		camera_vertical_angle   += mouse_sensitivity * (win_height * 0.5f - mouse_pos.y);
-
-		if (camera_vertical_angle > PI * 0.5f) {
-			camera_vertical_angle = PI * 0.5f;
-		}
-		else if (camera_vertical_angle < -PI * 0.5f) {
-			camera_vertical_angle = -PI * 0.5f;
-		}
-
 		glm::vec3 camera_vec = glm::rotate(glm::vec3(0.0f, 0.0f, 1.0f), camera_vertical_angle, glm::vec3(1.0f, 0.0f, 0.0f));
 		camera_vec = glm::rotate(camera_vec, camera_horizontal_angle, glm::vec3(0.0f, 1.0f, 0.0f));
 
-		sf::Mouse::setPosition(sf::Vector2i(win_width / 2, win_height / 2), window);
+		if (mouse_control) {	
+			sf::Mouse::setPosition(sf::Vector2i(win_width / 2, win_height / 2), window);
+			const float mouse_sensitivity = 0.005f;
+			camera_horizontal_angle -= mouse_sensitivity * (win_width  * 0.5f - mouse_pos.x);
+			camera_vertical_angle += mouse_sensitivity * (win_height * 0.5f - mouse_pos.y);
+
+			if (camera_vertical_angle > PI * 0.5f) {
+				camera_vertical_angle = PI * 0.5f;
+			}
+			else if (camera_vertical_angle < -PI * 0.5f) {
+				camera_vertical_angle = -PI * 0.5f;
+			}
+		}
 
 		sf::Event event;
 		while (window.pollEvent(event)) {
@@ -131,7 +132,8 @@ int32_t main()
 					use_denoise = !use_denoise;
 					break;
 				case sf::Keyboard::E:
-					start.z -= movement_speed;
+					mouse_control = !mouse_control;
+					window.setMouseCursorVisible(!mouse_control);
 					break;
 				default:
 					break;
@@ -172,7 +174,13 @@ int32_t main()
 		
 		sf::Sprite render_sprite(render_tex.getTexture());
 		render_sprite.setScale(1.0f / render_scale, 1.0f / render_scale);
-		window.draw(render_sprite);
+
+		if (use_denoise) {
+			window.draw(render_sprite, &shader);
+		}
+		else {
+			window.draw(render_sprite);
+		}
 		window.display();
 
 		time += frame_clock.getElapsedTime().asSeconds();

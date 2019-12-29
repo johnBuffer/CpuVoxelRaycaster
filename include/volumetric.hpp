@@ -16,8 +16,10 @@ struct HitPoint
 
 	glm::vec3 position;
 	glm::vec3 normal;
+	glm::vec2 voxel_coord;
 
 	Cell::Type type;
+	float distance;
 };
 
 
