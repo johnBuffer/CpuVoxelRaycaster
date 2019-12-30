@@ -21,6 +21,15 @@ void mult(sf::Color& color, float f)
 }
 
 
+void mult(sf::Color& color1, const sf::Color& color2)
+{
+	constexpr float inv = 1.0f / 255.0f;
+	color1.r = color1.r * color2.r * inv;
+	color1.g = color1.g * color2.g * inv;
+	color1.b = color1.b * color2.b * inv;
+}
+
+
 float frac(float f)
 {
 	float whole;

@@ -8,32 +8,36 @@
 
 
 template<int32_t X, int32_t Y, int32_t Z>
-class Grid3D : public Volumetric
+class Grid3D_packed : public Volumetric
 {
 public:
-	Grid3D();
+	Grid3D_packed();
 
 	HitPoint cast_ray(const glm::vec3& position, const glm::vec3& direction) const override;
 
 	void setCell(Cell::Type type, uint32_t x, uint32_t y, uint32_t z);
 
-	const Cell& getCellAt(const glm::vec3& position) const
-	{
-		return m_cells[int(position.x)][int(position.y)][int(position.z)];
-	}
+	const Cell& getCell_const(int32_t x, int32_t y, int32_t z) const;
+	Cell& getCell(int32_t x, int32_t y, int32_t z);
 
 private:
-	std::array<std::array<std::array<Cell, Z>, Y>, X> m_cells;
+	std::array<Cell, X*Y*Z> m_cells;
+
+	const uint64_t size = X * Y * Z;
+	const uint32_t chunk_size = 1U;
+	const uint32_t chunk_elements = chunk_size * chunk_size * chunk_size;
+	const uint32_t grid_chunk_width  = X / chunk_size;
+	const uint32_t grid_chunk_height = Y / chunk_size;
+	const uint32_t grid_chunk_depth  = Z / chunk_size;
 };
 
 template<int32_t X, int32_t Y, int32_t Z>
-inline Grid3D<X, Y, Z>::Grid3D()
+inline Grid3D_packed<X, Y, Z>::Grid3D_packed()
 {
-	constexpr uint64_t size = X * Y * Z;
 }
 
 template<int32_t X, int32_t Y, int32_t Z>
-inline HitPoint Grid3D<X, Y, Z>::cast_ray(const glm::vec3& position, const glm::vec3& direction) const
+inline HitPoint Grid3D_packed<X, Y, Z>::cast_ray(const glm::vec3& position, const glm::vec3& direction) const
 {
 	HitPoint point;
 
@@ -65,11 +69,8 @@ inline HitPoint Grid3D<X, Y, Z>::cast_ray(const glm::vec3& position, const glm::
 
 	uint8_t hit_side;
 
-	const uint32_t max_iter = 2048;
-	uint32_t iter = 0U;
-	while (cell_x >= 0 && cell_y >= 0 && cell_z >= 0 && cell_x < X && cell_y < Y && cell_z < Z && iter < max_iter) {
+	while (cell_x >= 0 && cell_y >= 0 && cell_z >= 0 && cell_x < X && cell_y < Y && cell_z < Z) {
 		float t_max_min;
-		++iter;
 		if (t_max_x < t_max_y) {
 			if (t_max_x < t_max_z) {
 				t_max_min = t_max_x;
@@ -100,7 +101,7 @@ inline HitPoint Grid3D<X, Y, Z>::cast_ray(const glm::vec3& position, const glm::
 		}
 
 		if (cell_x >= 0 && cell_y >= 0 && cell_z >= 0 && cell_x < X && cell_y < Y && cell_z < Z) {
-			const Cell& cell = m_cells[cell_x][cell_y][cell_z];
+			const Cell& cell = getCell_const(cell_x, cell_y, cell_z);
 			if (cell.type != Cell::Empty) {
 				float hit_x = position.x + t_max_min * direction.x;
 				float hit_y = position.y + t_max_min * direction.y;
@@ -131,7 +132,30 @@ inline HitPoint Grid3D<X, Y, Z>::cast_ray(const glm::vec3& position, const glm::
 }
 
 template<int32_t X, int32_t Y, int32_t Z>
-inline void Grid3D<X, Y, Z>::setCell(Cell::Type type, uint32_t x, uint32_t y, uint32_t z)
+inline void Grid3D_packed<X, Y, Z>::setCell(Cell::Type type, uint32_t x, uint32_t y, uint32_t z)
 {
-	m_cells[x][y][z].type = type;
+	getCell(x, y, z).type = type;
+}
+
+template<int32_t X, int32_t Y, int32_t Z>
+inline const Cell& Grid3D_packed<X, Y, Z>::getCell_const(int32_t x, int32_t y, int32_t z) const
+{
+	const int32_t chunk_x = x / chunk_size;
+	const int32_t chunk_y = y / chunk_size;
+	const int32_t chunk_z = z / chunk_size;
+
+	const int32_t in_chunk_x = x % chunk_size;
+	const int32_t in_chunk_y = y % chunk_size;
+	const int32_t in_chunk_z = z % chunk_size;
+
+	const uint32_t chunk_index = grid_chunk_width * grid_chunk_height * chunk_z + chunk_y * grid_chunk_width + chunk_x;
+	const uint32_t cell_index = chunk_index * chunk_elements + in_chunk_z * chunk_size * chunk_size + in_chunk_y * chunk_size + in_chunk_x;
+
+	return m_cells[cell_index];
+}
+
+template<int32_t X, int32_t Y, int32_t Z>
+inline Cell& Grid3D_packed<X, Y, Z>::getCell(int32_t x, int32_t y, int32_t z)
+{
+	return const_cast<Cell&>(getCell_const(x, y, z));
 }
