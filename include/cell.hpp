@@ -5,7 +5,9 @@ struct Cell
 	enum Type {
 		Empty,
 		Solid,
-		Mirror
+		Mirror,
+		Grass,
+		Water
 	};
 
 	Cell()

@@ -17,6 +17,11 @@ public:
 
 	void setCell(Cell::Type type, uint32_t x, uint32_t y, uint32_t z);
 
+	const Cell& getCellAt(const glm::vec3& position) const
+	{
+		return m_cells[int(position.x)][int(position.y)][int(position.z)];
+	}
+
 private:
 	std::array<std::array<std::array<Cell, Z>, Y>, X> m_cells;
 };
@@ -60,8 +65,11 @@ inline HitPoint Grid3D<X, Y, Z>::cast_ray(const glm::vec3& position, const glm::
 
 	uint8_t hit_side;
 
-	while (cell_x >= 0 && cell_y >= 0 && cell_z >= 0 && cell_x < X && cell_y < Y && cell_z < Z) {
+	const uint32_t max_iter = 2048;
+	uint32_t iter = 0U;
+	while (cell_x >= 0 && cell_y >= 0 && cell_z >= 0 && cell_x < X && cell_y < Y && cell_z < Z && iter < max_iter) {
 		float t_max_min;
+		++iter;
 		if (t_max_x < t_max_y) {
 			if (t_max_x < t_max_z) {
 				t_max_min = t_max_x;
