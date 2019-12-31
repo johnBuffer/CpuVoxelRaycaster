@@ -2,6 +2,8 @@
 #include <SFML/Graphics.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtx/rotate_vector.hpp>
+#include <sstream>
+#include <fstream>
 
 #include "svo.hpp"
 #include "utils.hpp"
@@ -9,20 +11,20 @@
 #include "FastNoise.h"
 #include "raycaster.hpp"
 #include "dynamic_blur.hpp"
-
-
-constexpr float PI = 3.141592653;
+#include "fly_controller.hpp"
+#include "replay.hpp"
 
 
 int32_t main()
 {
-	constexpr uint32_t win_width = 1280;
-	constexpr uint32_t win_height = 720;
+	constexpr uint32_t win_width = 1920;
+	constexpr uint32_t win_height = 1080;
 
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
 	window.setMouseCursorVisible(false);
+	window.setFramerateLimit(60.0f);
 
-	constexpr float render_scale = 0.5f;
+	constexpr float render_scale = 1.0f;
 	constexpr uint32_t RENDER_WIDTH  = win_width  * render_scale;
 	constexpr uint32_t RENDER_HEIGHT = win_height * render_scale;
 	sf::RenderTexture render_tex;
@@ -31,23 +33,28 @@ int32_t main()
 	render_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
 	denoised_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
 	bloom_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
-	render_tex.setSmooth(true);
+	render_tex.setSmooth(false);
 
-	Blur blur(RENDER_WIDTH, RENDER_HEIGHT, 2.0f);
+	Blur blur(RENDER_WIDTH, RENDER_HEIGHT, 0.5f);
 
-	float movement_speed = 2.5f;
-	float camera_horizontal_angle = 0;
-	float camera_vertical_angle = 0;
+	float movement_speed = 1.0f;
 
 	const float body_radius = 0.4f;
-	glm::vec3 start(10, 120, 10);
+	
 	const glm::vec3 camera_origin(float(RENDER_WIDTH) * 0.5f, float(RENDER_HEIGHT) * 0.5f, -0.85f * float(RENDER_WIDTH));
 	
 	constexpr int32_t grid_size_x = 256;
 	constexpr int32_t grid_size_y = 192;
 	constexpr int32_t grid_size_z = 256;
-	Grid3D<grid_size_x, grid_size_y, grid_size_z>* grid_raw = new Grid3D<grid_size_x, grid_size_y, grid_size_z>();
-	Grid3D<grid_size_x, grid_size_y, grid_size_z>& grid = *grid_raw;
+	using Grid = Grid3D<grid_size_x, grid_size_y, grid_size_z>;
+	Grid* grid_raw = new Grid();
+	Grid& grid = *grid_raw;
+
+	Camera camera;
+	camera.position = glm::vec3(10, 120, 10);
+	camera.view_angle = glm::vec2(0.0f, 0.0f);
+
+	FlyController controller;
 
 	FastNoise myNoise; // Create a FastNoise object
 	myNoise.SetNoiseType(FastNoise::SimplexFractal); // Set the desired noise type
@@ -65,11 +72,15 @@ int32_t main()
 		}
 	}
 
-	for (int x = 0; x < grid_size_x; x++) {
-		for (int z = 0; z < grid_size_z; z++) {
-			int max_height = grid_size_y;
-
-			grid.setCell(Cell::Mirror, x, 0, z);
+	int sky_mirror_offset = 50;
+	for (int x = sky_mirror_offset; x < grid_size_x - sky_mirror_offset; x++) {
+		for (int z = sky_mirror_offset; z < grid_size_z - sky_mirror_offset; z++) {
+			if (x == sky_mirror_offset || x == grid_size_x-sky_mirror_offset -1 || z == sky_mirror_offset || z == grid_size_z-sky_mirror_offset-1) {
+				grid.setCell(Cell::Solid, x, 0, z);
+			}
+			else {
+				grid.setCell(Cell::Mirror, x, 0, z);
+			}
 		}
 	}
 
@@ -106,6 +117,17 @@ int32_t main()
 		}
 	}
 
+	/*for (int z = 50; z < 150; z++) {
+		for (int y(10); y < 60; ++y) {
+			if (z == 50 || z == 149 || y == 10 || y == 59) {
+				grid.setCell(Cell::Solid, 256-24, grid_size_y - y - 1, z);
+			}
+			else {
+				grid.setCell(Cell::Mirror, 256 - 24, grid_size_y - y - 1, z);
+			}
+		}
+	}*/
+
 	/*for (int i(12000); i--;) {
 		grid.setCell(Cell::Solid, rand()% grid_size_x, rand() % grid_size_y, rand() % grid_size_z);
 	}*/
@@ -124,71 +146,62 @@ int32_t main()
 	sf::Shader shader_threshold;
 	sf::Shader shader_denoise;
 	shader.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/median_3.frag", sf::Shader::Fragment);
-	shader_threshold.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/threshold.frag", sf::Shader::Fragment);
-	shader_threshold.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/denoiser.frag", sf::Shader::Fragment);
+	//shader_threshold.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/threshold.frag", sf::Shader::Fragment);
+	//shader_threshold.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/denoiser.frag", sf::Shader::Fragment);
 
 	bool mouse_control = true;
 	bool use_denoise = true;
+	bool mode_demo = false;
 
 	int32_t checker_board_offset = 0;
+
+	sf::Texture screen_capture;
+	screen_capture.create(win_width, win_height);
+	uint32_t frame_count = 0U;
+
+	bool left(false), right(false), forward(false), backward(false);
+
+	std::ofstream stream;
+	stream.open("C:/Users/jeant/Desktop/recs/lol.txt");
+
+	std::list<ReplayElements> replay;
 
 	while (window.isOpen())
 	{
 		sf::Clock frame_clock;
 		const sf::Vector2i mouse_pos = sf::Mouse::getPosition(window);
 
-		glm::vec3 camera_vec = glm::rotate(glm::vec3(0.0f, 0.0f, 1.0f), camera_vertical_angle, glm::vec3(1.0f, 0.0f, 0.0f));
-		camera_vec = glm::rotate(camera_vec, camera_horizontal_angle, glm::vec3(0.0f, 1.0f, 0.0f));
-
 		if (mouse_control) {	
 			sf::Mouse::setPosition(sf::Vector2i(win_width / 2, win_height / 2), window);
 			const float mouse_sensitivity = 0.005f;
-			camera_horizontal_angle -= mouse_sensitivity * (win_width  * 0.5f - mouse_pos.x);
-			camera_vertical_angle += mouse_sensitivity * (win_height * 0.5f - mouse_pos.y);
-
-			if (camera_vertical_angle > PI * 0.5f) {
-				camera_vertical_angle = PI * 0.5f;
-			}
-			else if (camera_vertical_angle < -PI * 0.5f) {
-				camera_vertical_angle = -PI * 0.5f;
-			}
+			controller.updateCameraView(mouse_sensitivity * glm::vec2(mouse_pos.x - win_width  * 0.5f, (win_height  * 0.5f) - mouse_pos.y), camera);
 		}
 
-		/*if (grid.getCellAt(start + glm::vec3(0.0f, 1.02f, 0.0f)).type == Cell::Empty) {
-			start.y += 0.2f;
-		}*/
+		glm::vec3 camera_vec = glm::rotate(glm::vec3(0.0f, 0.0f, 1.0f), camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
+		camera_vec = glm::rotate(camera_vec, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
 
+		glm::vec3 move = glm::vec3(0.0f);
 		sf::Event event;
 		while (window.pollEvent(event)) {
 			if (event.type == sf::Event::Closed)
 				window.close();
 
-			if (event.type == sf::Event::KeyPressed)
-			{
-				switch (event.key.code)
-				{
+			if (event.type == sf::Event::KeyPressed) {
+				switch (event.key.code) {
 				case sf::Keyboard::Escape:
 					window.close();
 					break;
 				case sf::Keyboard::Z:
-					glm::vec3 move = camera_vec * movement_speed;
-					/*move.y = 0.0f;
-					if (grid.getCellAt(start + glm::vec3(body_radius, 0.0f, 0.0f)).type != Cell::Empty) {
-						move.x = 0.0f;
-					}
-					if (grid.getCellAt(start + glm::vec3(0.0f, 0.0f, body_radius)).type != Cell::Empty) {
-						move.z = 0.0f;
-					}*/
-					start += move;
+					forward = true;
 					break;
 				case sf::Keyboard::S:
-					start -= camera_vec * movement_speed;
+					backward = true;
 					break;
 				case sf::Keyboard::Q:
-					start += glm::vec3(-camera_vec.z, 0.0f, camera_vec.x) * movement_speed;
+					left = true;
 					break;
 				case sf::Keyboard::D:
-					start -= glm::vec3(-camera_vec.z, 0.0f, camera_vec.x) * movement_speed;
+					right = true;
 					break;
 				case sf::Keyboard::A:
 					use_denoise = !use_denoise;
@@ -197,16 +210,86 @@ int32_t main()
 					mouse_control = !mouse_control;
 					window.setMouseCursorVisible(!mouse_control);
 					break;
+				case sf::Keyboard::F:
+					mode_demo = !mode_demo;
+					window.setMouseCursorVisible(!mode_demo && !mouse_control);
+					if (mode_demo) {
+						replay = ReplayElements::loadFromFile("C:/Users/jeant/Desktop/recs/lol3.txt");
+						time = 0.0f;
+					}
+					break;
+				default:
+					break;
+				}
+			}
+			else if (event.type == sf::Event::KeyReleased) {
+				switch (event.key.code) {
+				case sf::Keyboard::Z:
+					forward = false;
+					break;
+				case sf::Keyboard::S:
+					backward = false;
+					break;
+				case sf::Keyboard::Q:
+					left = false;
+					break;
+				case sf::Keyboard::D:
+					right = false;
+					break;
 				default:
 					break;
 				}
 			}
 		}
+
+		if (forward) {
+			move += camera_vec * movement_speed;
+		}
+		else if (backward) {
+			move -= camera_vec * movement_speed;
+		}
+
+		if (left) {
+			move += glm::vec3(-camera_vec.z, 0.0f, camera_vec.x) * movement_speed;
+		}
+		else if (right) {
+			move -= glm::vec3(-camera_vec.z, 0.0f, camera_vec.x) * movement_speed;
+		}
+
+		if (!replay.empty()) {
+			std::cout << replay.front().timestamp << std::endl;
+			while (time > replay.front().timestamp) {
+				const auto& last = replay.front();
+				
+				camera.position.x = last.x;
+				camera.position.y = last.y;
+				camera.position.z = last.z;
+
+				camera.view_angle.x = last.view_x;
+				camera.view_angle.y = last.view_y;
+
+				replay.pop_front();
+				if (replay.empty()) {
+					break;
+				}
+			}
+		}
+
+		controller.move(move, camera, grid);
 		
 		const glm::vec3 light_position = glm::vec3(grid_size_x*0.5f, 0.0f, grid_size_z*0.5f) + glm::rotate(glm::vec3(0.0f, -500.0f, 1000.0f), 0.2f * time, glm::vec3(0.0f, 1.0f, 0.0f));
 		raycaser.setLightPosition(light_position);
 
 		checker_board_offset = 1 - checker_board_offset;
+
+		/*if (mode_demo) {
+			camera.position.x = (0.5f * grid_size_x - 10.0f) * cos(0.1f * time) + 0.5f * grid_size_x;
+			camera.position.z = (0.5f * grid_size_z - 10.0f) * sin(0.1f * time) + 0.5f * grid_size_z;
+			camera.position.y = 90.0 + 80.0f*sin(0.1f * time);
+
+			camera.view_angle.x = -0.1f * time - PI * 0.5f;
+			camera.view_angle.y = -PI*0.15f + PI*0.1f * sin(0.1f * time);
+		}*/
 
 		auto group = swarm.execute([&](uint32_t thread_id, uint32_t max_thread) {
 			const uint32_t area_width = RENDER_WIDTH / 4;
@@ -215,12 +298,12 @@ int32_t main()
 			const uint32_t start_y = thread_id / 4;
 
 			for (int x(start_x * area_width); x < (start_x + 1) * area_width; ++x) {
-				for (int y(start_y * area_height + (x+checker_board_offset)%2); y < (start_y + 1) * area_height; y += 2) {
+				for (int y(start_y * area_height); y < (start_y + 1) * area_height; y++) {
 					const glm::vec3 screen_position(x, y, 0.0f);
-					glm::vec3 ray = glm::rotate(screen_position - camera_origin, camera_vertical_angle, glm::vec3(1.0f, 0.0f, 0.0f));
-					ray = glm::rotate(ray, camera_horizontal_angle, glm::vec3(0.0f, 1.0f, 0.0f));
+					glm::vec3 ray = glm::rotate(screen_position - camera_origin, camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
+					ray = glm::rotate(ray, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
 
-					raycaser.render_ray(sf::Vector2i(x, y), start, glm::normalize(ray), time);
+					raycaser.render_ray(sf::Vector2i(x, y), camera.position, glm::normalize(ray), time);
 				}
 			}
 		}, 16);
@@ -246,7 +329,7 @@ int32_t main()
 		sf::Sprite render_sprite(render_tex.getTexture());
 		render_sprite.setScale(1.0f / render_scale, 1.0f / render_scale);
 
-		if (use_denoise) {
+		if (use_denoise && !mode_demo) {
 			window.draw(render_sprite, &shader);
 		}
 		else {
@@ -254,6 +337,24 @@ int32_t main()
 		}
 		window.display();
 
-		time += frame_clock.getElapsedTime().asSeconds();
+		if (mode_demo) {
+			screen_capture.update(window);
+			sf::Image image = screen_capture.copyToImage();
+
+			std::stringstream ssx;
+			ssx << "C:/Users/jeant/Desktop/voxels_dumps/img_" << frame_count++ << ".bmp";
+			image.saveToFile(ssx.str());
+		}
+
+		stream << time << " " << camera.position.x << " " << camera.position.y << " " << camera.position.z << " " << camera.view_angle.x << " " << camera.view_angle.y << std::endl;
+
+		if (!mode_demo) {
+			time += frame_clock.getElapsedTime().asSeconds();
+		}
+		else {
+			time += 0.016f;
+		}
 	}
+
+	stream.close();
 }

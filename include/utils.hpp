@@ -37,4 +37,12 @@ float frac(float f)
 }
 
 
-
+void clamp(float& value, float min, float max)
+{
+	if (value > max) {
+		value = max;
+	}
+	else if (value < min) {
+		value = min;
+	}
+}
