@@ -44,9 +44,9 @@ int32_t main()
 	
 	const glm::vec3 camera_origin(float(RENDER_WIDTH) * 0.5f, float(RENDER_HEIGHT) * 0.5f, -0.85f * float(RENDER_WIDTH));
 	
-	constexpr int32_t grid_size_x = 256;
-	constexpr int32_t grid_size_y = 256;
-	constexpr int32_t grid_size_z = 256;
+	constexpr int32_t grid_size_x = 1024;
+	constexpr int32_t grid_size_y = 1024;
+	constexpr int32_t grid_size_z = 1024;
 	//using Volume = Grid3D<grid_size_x, grid_size_y, grid_size_z>;
 	using Volume = SVO;
 	Volume* grid_raw = new Volume();
@@ -54,9 +54,11 @@ int32_t main()
 
 	Camera camera;
 	camera.position = glm::vec3(1, 1, 1);
-	camera.view_angle = glm::vec2(0.0f, 0.0f);
+	camera.view_angle = glm::vec2(0.0f);
 
 	FlyController controller;
+
+	grid.setCell(Cell::Grass, 2, 2, 2);
 
 	FastNoise myNoise; // Create a FastNoise object
 	myNoise.SetNoiseType(FastNoise::SimplexFractal); // Set the desired noise type
@@ -138,7 +140,9 @@ int32_t main()
 
 	RayCaster raycaser(grid, screen_pixels, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
 
-	swrm::Swarm swarm(16);
+	const uint32_t thread_count = 16U;
+	const uint32_t area_count = sqrt(thread_count);
+	swrm::Swarm swarm(thread_count);
 
 	sf::Mouse::setPosition(sf::Vector2i(win_width / 2, win_height / 2), window);
 
@@ -294,8 +298,8 @@ int32_t main()
 		}*/
 
 		auto group = swarm.execute([&](uint32_t thread_id, uint32_t max_thread) {
-			const uint32_t area_width = RENDER_WIDTH / 4;
-			const uint32_t area_height = RENDER_HEIGHT / 4;
+			const uint32_t area_width = RENDER_WIDTH / area_count;
+			const uint32_t area_height = RENDER_HEIGHT / area_count;
 			const uint32_t start_x = thread_id % 4;
 			const uint32_t start_y = thread_id / 4;
 

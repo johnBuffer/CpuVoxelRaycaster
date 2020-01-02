@@ -46,7 +46,7 @@ struct RayCaster
 		if (intersection.type == Cell::Solid || intersection.type == Cell::Grass) {
 			//sf::Color color = getColorFromHitPoint(intersection);
 			//return color;
-			const float c = (complexity) * 0.1f;
+			const float c = (complexity);
 			return sf::Color(c, c, c);
 		} else if (intersection.type == Cell::Mirror || intersection.type == Cell::Water) {
 			glm::vec3 normal = intersection.normal;
@@ -76,11 +76,11 @@ struct RayCaster
 				add(color, 255.0f * specular_coef);
 			}
 
-			const float c = (complexity) * 0.1f;
+			const float c = (complexity);
 			return sf::Color(c, c, c);
 		}
 		else {
-			return sf::Color::Red;
+			return sf::Color::Black;
 		}
 	}
 
