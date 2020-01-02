@@ -13,7 +13,7 @@ class Grid3D : public Volumetric
 public:
 	Grid3D();
 
-	HitPoint cast_ray(const glm::vec3& position, const glm::vec3& direction) const override;
+	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction) const override;
 
 	void setCell(Cell::Type type, uint32_t x, uint32_t y, uint32_t z);
 
@@ -33,7 +33,7 @@ inline Grid3D<X, Y, Z>::Grid3D()
 }
 
 template<int32_t X, int32_t Y, int32_t Z>
-inline HitPoint Grid3D<X, Y, Z>::cast_ray(const glm::vec3& position, const glm::vec3& direction) const
+inline HitPoint Grid3D<X, Y, Z>::castRay(const glm::vec3& position, const glm::vec3& direction) const
 {
 	HitPoint point;
 
@@ -121,6 +121,7 @@ inline HitPoint Grid3D<X, Y, Z>::cast_ray(const glm::vec3& position, const glm::
 				}
 
 				point.distance = t_max_min;
+				point.complexity = iter;
 
 				break;
 			}

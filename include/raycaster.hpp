@@ -28,22 +28,26 @@ struct RayCaster
 		const uint32_t y = pixel.y;
 		va[x * render_size.y + y].position = sf::Vector2f(x, y);
 		va[x * render_size.y + y].color = sky_color;
-
-		const sf::Color color = cast_ray(start, direction, 1.5f * time, 0U);
+	
+		uint32_t complexity = 0U;
+		const sf::Color color = cast_ray(start, direction, 1.5f * time, 0U, complexity);
 
 		va[x * render_size.y + y].color = color;
 	}
 
-	sf::Color cast_ray(const glm::vec3& start, const glm::vec3& direction, float time, int32_t bounds)
+	sf::Color cast_ray(const glm::vec3& start, const glm::vec3& direction, float time, int32_t bounds, uint32_t& complexity)
 	{
 		if (bounds > max_bounds)
 			return sky_color;
 
-		const HitPoint intersection = volumetric.cast_ray(start, direction);
+		const HitPoint intersection = volumetric.castRay(start, direction);
+		complexity += intersection.complexity;
 		
 		if (intersection.type == Cell::Solid || intersection.type == Cell::Grass) {
-			sf::Color color = getColorFromHitPoint(intersection);
-			return color;
+			//sf::Color color = getColorFromHitPoint(intersection);
+			//return color;
+			const float c = (complexity) * 0.1f;
+			return sf::Color(c, c, c);
 		} else if (intersection.type == Cell::Mirror || intersection.type == Cell::Water) {
 			glm::vec3 normal = intersection.normal;
 			if (intersection.type == Cell::Water) {
@@ -54,7 +58,7 @@ struct RayCaster
 				normal = glm::normalize(normal);
 			}
 
-			sf::Color color = cast_ray(intersection.position, glm::reflect(direction, normal), time, bounds + 1);
+			sf::Color color = cast_ray(intersection.position, glm::reflect(direction, normal), time, bounds + 1, complexity);
 			const glm::vec3 light_hit = glm::normalize(intersection.position - light_position);
 			const glm::vec3 light_reflection = glm::reflect(light_hit, normal);
 			const bool facing_light = isFacingLight(intersection);
@@ -72,10 +76,11 @@ struct RayCaster
 				add(color, 255.0f * specular_coef);
 			}
 
-			return color;
+			const float c = (complexity) * 0.1f;
+			return sf::Color(c, c, c);
 		}
 		else {
-			return sky_color;
+			return sf::Color::Red;
 		}
 	}
 
@@ -120,7 +125,7 @@ struct RayCaster
 	{
 		constexpr float eps = 0.001f;
 		const glm::vec3 hit_light = glm::normalize(light_position - hit_point.position);
-		const HitPoint light_ray = volumetric.cast_ray(hit_point.position + eps * hit_point.normal, hit_light);
+		const HitPoint light_ray = volumetric.castRay(hit_point.position + eps * hit_point.normal, hit_light);
 
 		return light_ray.type == Cell::Empty;
 	}

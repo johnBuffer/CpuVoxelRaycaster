@@ -6,6 +6,7 @@
 #include <fstream>
 
 #include "svo.hpp"
+#include "grid_3d.hpp"
 #include "utils.hpp"
 #include "swarm.hpp"
 #include "FastNoise.h"
@@ -17,14 +18,14 @@
 
 int32_t main()
 {
-	constexpr uint32_t win_width = 1920;
-	constexpr uint32_t win_height = 1080;
+	constexpr uint32_t win_width = 800;
+	constexpr uint32_t win_height = 800;
 
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
 	window.setMouseCursorVisible(false);
 	window.setFramerateLimit(60.0f);
 
-	constexpr float render_scale = 1.0f;
+	constexpr float render_scale = 0.5f;
 	constexpr uint32_t RENDER_WIDTH  = win_width  * render_scale;
 	constexpr uint32_t RENDER_HEIGHT = win_height * render_scale;
 	sf::RenderTexture render_tex;
@@ -44,14 +45,15 @@ int32_t main()
 	const glm::vec3 camera_origin(float(RENDER_WIDTH) * 0.5f, float(RENDER_HEIGHT) * 0.5f, -0.85f * float(RENDER_WIDTH));
 	
 	constexpr int32_t grid_size_x = 256;
-	constexpr int32_t grid_size_y = 192;
+	constexpr int32_t grid_size_y = 256;
 	constexpr int32_t grid_size_z = 256;
-	using Grid = Grid3D<grid_size_x, grid_size_y, grid_size_z>;
-	Grid* grid_raw = new Grid();
-	Grid& grid = *grid_raw;
+	//using Volume = Grid3D<grid_size_x, grid_size_y, grid_size_z>;
+	using Volume = SVO;
+	Volume* grid_raw = new Volume();
+	Volume& grid = *grid_raw;
 
 	Camera camera;
-	camera.position = glm::vec3(10, 120, 10);
+	camera.position = glm::vec3(1, 1, 1);
 	camera.view_angle = glm::vec2(0.0f, 0.0f);
 
 	FlyController controller;
@@ -64,14 +66,14 @@ int32_t main()
 			int max_height = grid_size_y;
 			int height = 32.0f * myNoise.GetNoise(x, z);
 
-			grid.setCell(Cell::Water, x, grid_size_y - 1, z);
+			//grid.setCell(Cell::Water, x, grid_size_y - 1, z);
 
 			for (int y(1); y < std::min(max_height, height); ++y) {
 				grid.setCell(Cell::Grass, x, grid_size_y - y - 1, z);
 			}
 		}
 	}
-
+	/*
 	int sky_mirror_offset = 50;
 	for (int x = sky_mirror_offset; x < grid_size_x - sky_mirror_offset; x++) {
 		for (int z = sky_mirror_offset; z < grid_size_z - sky_mirror_offset; z++) {
@@ -116,7 +118,7 @@ int32_t main()
 			}
 		}
 	}
-
+	*/
 	/*for (int z = 50; z < 150; z++) {
 		for (int y(10); y < 60; ++y) {
 			if (z == 50 || z == 149 || y == 10 || y == 59) {
@@ -306,7 +308,7 @@ int32_t main()
 					raycaser.render_ray(sf::Vector2i(x, y), camera.position, glm::normalize(ray), time);
 				}
 			}
-		}, 16);
+		});
 
 		group.waitExecutionDone();
 
@@ -320,11 +322,11 @@ int32_t main()
 		render_tex.draw(sf::Sprite(denoised_tex.getTexture()));
 		render_tex.display();*/
 
-		bloom_tex.draw(sf::Sprite(render_tex.getTexture()), &shader_threshold);
+		/*bloom_tex.draw(sf::Sprite(render_tex.getTexture()), &shader_threshold);
 		bloom_tex.display();
 
 		render_tex.draw(blur.apply(bloom_tex.getTexture(), 1), sf::BlendAdd);
-		render_tex.display();
+		render_tex.display();*/
 		
 		sf::Sprite render_sprite(render_tex.getTexture());
 		render_sprite.setScale(1.0f / render_scale, 1.0f / render_scale);
