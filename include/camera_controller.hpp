@@ -5,7 +5,7 @@
 #include "utils.hpp"
 
 
-constexpr float PI = 3.141592653;
+constexpr float PI = 3.141592653f;
 
 
 struct Camera

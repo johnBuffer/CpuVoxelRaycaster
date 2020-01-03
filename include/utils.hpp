@@ -7,26 +7,26 @@
 
 void add(sf::Color& color, float f)
 {
-	color.r = std::max(std::min(255.0f, color.r + f), 0.0f);
-	color.g = std::max(std::min(255.0f, color.g + f), 0.0f);
-	color.b = std::max(std::min(255.0f, color.b + f), 0.0f);
+	color.r = std::uint8_t(std::max(std::min(255.0f, color.r + f), 0.0f));
+	color.g = std::uint8_t(std::max(std::min(255.0f, color.g + f), 0.0f));
+	color.b = std::uint8_t(std::max(std::min(255.0f, color.b + f), 0.0f));
 }
 
 
 void mult(sf::Color& color, float f)
 {
-	color.r = std::min(255.0f, color.r * f);
-	color.g = std::min(255.0f, color.g * f);
-	color.b = std::min(255.0f, color.b * f);
+	color.r = std::uint8_t(std::min(255.0f, color.r * f));
+	color.g = std::uint8_t(std::min(255.0f, color.g * f));
+	color.b = std::uint8_t(std::min(255.0f, color.b * f));
 }
 
 
 void mult(sf::Color& color1, const sf::Color& color2)
 {
 	constexpr float inv = 1.0f / 255.0f;
-	color1.r = color1.r * color2.r * inv;
-	color1.g = color1.g * color2.g * inv;
-	color1.b = color1.b * color2.b * inv;
+	color1.r = std::uint8_t(color1.r * color2.r * inv);
+	color1.g = std::uint8_t(color1.g * color2.g * inv);
+	color1.b = std::uint8_t(color1.b * color2.b * inv);
 }
 
 

@@ -8,6 +8,8 @@
 
 struct RayCaster
 {
+	const float eps = 0.001f;
+
 	RayCaster(const Volumetric& volumetric_, sf::VertexArray& va_, const sf::Vector2i& render_size_)
 		: volumetric(volumetric_)
 		, va(va_)
@@ -26,7 +28,7 @@ struct RayCaster
 	{
 		const uint32_t x = pixel.x;
 		const uint32_t y = pixel.y;
-		va[x * render_size.y + y].position = sf::Vector2f(x, y);
+		va[x * render_size.y + y].position = sf::Vector2f(float(x), float(y));
 		va[x * render_size.y + y].color = sky_color;
 
 		uint32_t complexity = 0U;
@@ -36,7 +38,7 @@ struct RayCaster
 	}
 	
 
-	sf::Color cast_ray(const glm::vec3& start, const glm::vec3& direction, float time, int32_t bounds, uint32_t& complexity)
+	sf::Color cast_ray(const glm::vec3& start, const glm::vec3& direction, float time, uint32_t bounds, uint32_t& complexity)
 	{
 		if (bounds > max_bounds)
 			return sky_color;
@@ -45,10 +47,8 @@ struct RayCaster
 		complexity += intersection.complexity;
 		
 		if (intersection.type == Cell::Solid || intersection.type == Cell::Grass) {
-			//sf::Color color = getColorFromNormal(intersection.normal);
-			//return color;
-			const float c = (complexity);
-			return sf::Color(c, c, c);
+			sf::Color color = getColorFromHitPoint(intersection);
+			return color;
 		} else if (intersection.type == Cell::Mirror || intersection.type == Cell::Water) {
 			glm::vec3 normal = intersection.normal;
 			if (intersection.type == Cell::Water) {
@@ -59,11 +59,11 @@ struct RayCaster
 				normal = glm::normalize(normal);
 			}
 
-			sf::Color color = cast_ray(intersection.position, glm::reflect(direction, normal), time, bounds + 1, complexity);
+ 			sf::Color color = cast_ray(intersection.position + glm::vec3(0.0f, -eps, 0.0f), glm::reflect(direction, normal), time, bounds + 1, complexity);
 			const glm::vec3 light_hit = glm::normalize(intersection.position - light_position);
 			const glm::vec3 light_reflection = glm::reflect(light_hit, normal);
 			const bool facing_light = isFacingLight(intersection);
-			float reflection_coef = facing_light ? 0.4f : 0.2f;
+			float reflection_coef = facing_light ? 0.8f : 0.4f;
 			
 			if (intersection.type == Cell::Mirror) {
 				mult(color, sf::Color(200, 220, 200));
@@ -77,11 +77,12 @@ struct RayCaster
 				add(color, 255.0f * specular_coef);
 			}
 
-			const float c = (complexity);
-			return sf::Color(c, c, c);
+			//const uint32_t c = (complexity);
+			//return sf::Color(c, c, c);
+			return color;
 		}
 		else {
-			return sf::Color::Black;
+			return sky_color;
 		}
 	}
 
@@ -97,14 +98,9 @@ struct RayCaster
 			}
 
 			const float light_intensity = getLightIntensity(hit_point);
-			color.r *= light_intensity;
-			color.g *= light_intensity;
-			color.b *= light_intensity;
+			mult(color, light_intensity);
 		}
-
-		color.r *= color_factor;
-		color.g *= color_factor;
-		color.b *= color_factor;
+		mult(color, color_factor);
 
 		return color;
 	}
@@ -124,7 +120,6 @@ struct RayCaster
 
 	bool isFacingLight(const HitPoint& hit_point)
 	{
-		constexpr float eps = 0.001f;
 		const glm::vec3 hit_light = glm::normalize(light_position - hit_point.position);
 		const HitPoint light_ray = volumetric.castRay(hit_point.position + eps * hit_point.normal, hit_light);
 
@@ -156,10 +151,12 @@ struct RayCaster
 		return image_side;
 	}
 
-	const sf::Color getColorFromVoxelCoord(const sf::Image& image, const glm::vec2& coord)
+	const sf::Color getColorFromVoxelCoord(const sf::Image& image, glm::vec2 coords)
 	{
 		const sf::Vector2u tex_size = image.getSize();
-		return image.getPixel(tex_size.x * coord.x, tex_size.y * coord.y);
+		clamp(coords.x, 0.0f, 1.0f);
+		clamp(coords.y, 0.0f, 1.0f);
+		return image.getPixel(uint32_t(tex_size.x * coords.x), uint32_t(tex_size.y * coords.y));
 	}
 
 	sf::Image image_side;

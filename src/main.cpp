@@ -18,16 +18,16 @@
 
 int32_t main()
 {
-	constexpr uint32_t win_width = 800;
-	constexpr uint32_t win_height = 800;
+	constexpr uint32_t win_width = 1280;
+	constexpr uint32_t win_height = 720;
 
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
 	window.setMouseCursorVisible(false);
-	window.setFramerateLimit(30.0f);
+	//window.setFramerateLimit(30);
 
 	constexpr float render_scale = 0.5f;
-	constexpr uint32_t RENDER_WIDTH  = win_width  * render_scale;
-	constexpr uint32_t RENDER_HEIGHT = win_height * render_scale;
+	constexpr uint32_t RENDER_WIDTH  = uint32_t(win_width  * render_scale);
+	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
 	sf::RenderTexture denoised_tex;
 	sf::RenderTexture bloom_tex;
@@ -38,37 +38,38 @@ int32_t main()
 
 	Blur blur(RENDER_WIDTH, RENDER_HEIGHT, 0.5f);
 
-	float movement_speed = 5.5f;
+	float movement_speed = 1.5f;
 
 	const float body_radius = 0.4f;
 	
 	const glm::vec3 camera_origin(float(RENDER_WIDTH) * 0.5f, float(RENDER_HEIGHT) * 0.5f, -0.85f * float(RENDER_WIDTH));
 	
-	constexpr int32_t grid_size_x = 256;
-	constexpr int32_t grid_size_y = 256;
-	constexpr int32_t grid_size_z = 256;
+	constexpr int32_t size = 1024;
+	constexpr int32_t grid_size_x = size;
+	constexpr int32_t grid_size_y = size / 8;
+	constexpr int32_t grid_size_z = size;
 	//using Volume = Grid3D<grid_size_x, grid_size_y, grid_size_z>;
 	using Volume = SVO;
 	Volume* grid_raw = new Volume();
 	Volume& grid = *grid_raw;
 
 	Camera camera;
-	camera.position = glm::vec3(2.5, 2.5, 2.5);
+	camera.position = glm::vec3(2, 2, 2);
 	camera.view_angle = glm::vec2(0.0f);
 
 	FlyController controller;
 
-	grid.setCell(Cell::Grass, 2, 2, 2);
+	//grid.setCell(Cell::Grass, 2, 2, 2);
 
 	FastNoise myNoise; // Create a FastNoise object
 	myNoise.SetNoiseType(FastNoise::SimplexFractal); // Set the desired noise type
 
-	for (int x = 0; x < grid_size_x; x++) {
-		for (int z = 0; z < grid_size_z; z++) {
-			int max_height = grid_size_y;
-			int height = 35.0f * myNoise.GetNoise(x, z);
+	for (uint32_t x = 0; x < grid_size_x; x++) {
+		for (uint32_t z = 0; z < grid_size_z; z++) {
+			int32_t max_height = grid_size_y;
+			int32_t height = int32_t(64.0f * myNoise.GetNoise(float(0.5f * x), float(0.5f * z)) + 32);
 
-			grid.setCell(Cell::Grass, x, grid_size_y - 1, z);
+			grid.setCell(Cell::Water, x, grid_size_y - 1, z);
 
 			for (int y(1); y < std::min(max_height, height); ++y) {
 				grid.setCell(Cell::Grass, x, grid_size_y - y - 1, z);
@@ -140,8 +141,8 @@ int32_t main()
 
 	RayCaster raycaster(grid, screen_pixels, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
 
-	const uint32_t thread_count = 1U;
-	const uint32_t area_count = sqrt(thread_count);
+	const uint32_t thread_count = 16U;
+	const uint32_t area_count = uint32_t(sqrt(thread_count));
 	swrm::Swarm swarm(thread_count);
 
 	sf::Mouse::setPosition(sf::Vector2i(win_width / 2, win_height / 2), window);
@@ -313,8 +314,8 @@ int32_t main()
 			const uint32_t start_x = thread_id % 4;
 			const uint32_t start_y = thread_id / 4;
 
-			for (int x(start_x * area_width); x < (start_x + 1) * area_width; ++x) {
-				for (int y(start_y * area_height); y < (start_y + 1) * area_height; ++y) {
+			for (uint32_t x(start_x * area_width); x < (start_x + 1) * area_width; ++x) {
+				for (uint32_t y(start_y * area_height + (x+checker_board_offset)%2); y < (start_y + 1) * area_height; y += 2) {
 					const glm::vec3 screen_position(x, y, 0.0f);
 					glm::vec3 ray = glm::rotate(screen_position - camera_origin, camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
 					ray = glm::rotate(ray, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));

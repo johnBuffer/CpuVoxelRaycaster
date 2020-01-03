@@ -67,14 +67,26 @@ public:
 	{
 		Ray ray(position, direction);
 
-		rec_cast_ray(ray, position, std::pow(2, m_max_level - 1), m_root);
+		const uint32_t max_cell_size = uint32_t(std::pow(2, m_max_level - 1));
+		rec_castRay(ray, position, max_cell_size, m_root);
 
 		return ray.point;
 	}
 
 	void setCell(Cell::Type type, uint32_t x, uint32_t y, uint32_t z)
 	{
-		rec_setCell(type, x, y, z, m_root, std::pow(2, m_max_level));
+		const uint32_t max_size = uint32_t(std::pow(2, m_max_level));
+		rec_setCell(type, x, y, z, m_root, max_size);
+	}
+
+	inline static bool checkCell(const glm::vec3& cell_coords)
+	{
+		return cell_coords.x >= 0 &&
+			   cell_coords.y >= 0 &&
+			   cell_coords.z >= 0 &&
+			   cell_coords.x < 2 &&
+			   cell_coords.y < 2 &&
+			   cell_coords.z < 2;
 	}
 
 private:
@@ -94,7 +106,6 @@ private:
 		}
 
 		const uint32_t sub_size = size / 2;
-
 		const uint32_t cell_x = x / sub_size;
 		const uint32_t cell_y = y / sub_size;
 		const uint32_t cell_z = z / sub_size;
@@ -106,24 +117,28 @@ private:
 		rec_setCell(type, x - cell_x * sub_size, y - cell_y * sub_size, z - cell_z * sub_size, node->sub[cell_x][cell_y][cell_z], sub_size);
 	}
 
-	void rec_cast_ray(Ray& ray, const glm::vec3& position, uint32_t cell_size, const Node* node) const {
+	void rec_castRay(Ray& ray, const glm::vec3& position, uint32_t cell_size, const Node* node) const {
 
 		glm::vec3 cell_pos_i = glm::ivec3(position.x / cell_size, position.y / cell_size, position.z / cell_size);
+		clamp(cell_pos_i.x, 0.0f, 1.0f);
+		clamp(cell_pos_i.y, 0.0f, 1.0f);
+		clamp(cell_pos_i.z, 0.0f, 1.0f);
 		glm::vec3 t_max = ((cell_pos_i + ray.dir) * float(cell_size) - position) / ray.direction;
+
+		const glm::vec3 t = float(cell_size) * ray.t;
 
 		float t_max_min = 0.0f;
 		const float t_total = ray.t_total;
-		while (cell_pos_i.x >= 0 && cell_pos_i.y >= 0 && cell_pos_i.z >= 0 && cell_pos_i.x < 2 && cell_pos_i.y < 2 && cell_pos_i.z < 2) {
+		while (checkCell(cell_pos_i)) {
+			// Increase pixel complexity
 			++ray.point.complexity;
-
 			// We enter the sub node
 			const Node* sub_node = node->sub[uint32_t(cell_pos_i.x)][uint32_t(cell_pos_i.y)][uint32_t(cell_pos_i.z)];
 			if (sub_node) {
 				if (sub_node->leaf) {
+					HitPoint& point = ray.point;
 					const Cell& cell = sub_node->cell;
 					const glm::vec3 hit = ray.start + (t_total + t_max_min) * ray.direction;
-
-					HitPoint& point = ray.point;
 
 					point.type = cell.type;
 					point.position = hit;
@@ -145,12 +160,10 @@ private:
 					return;
 				}
 				else {
-					// Need to compute entry coords in its space
-					// sub_position = parent_hit_coord - hit_cell_coords
 					const uint32_t sub_size = cell_size >> 1;
 					const glm::vec3 sub_position = (position + t_max_min * ray.direction) - cell_pos_i * float(cell_size);
 					ray.t_total = t_total + t_max_min;
-					rec_cast_ray(ray, sub_position, sub_size, sub_node);
+					rec_castRay(ray, sub_position, sub_size, sub_node);
 					if (ray.point.type != Cell::Empty) {
 						return;
 					}
@@ -160,21 +173,21 @@ private:
 			if (t_max.x < t_max.y) {
 				if (t_max.x < t_max.z) {
 					t_max_min = t_max.x;
-					t_max.x += ray.t.x * cell_size, cell_pos_i.x += ray.step.x, ray.hit_side = 0;
+					t_max.x += t.x, cell_pos_i.x += ray.step.x, ray.hit_side = 0;
 				}
 				else {
 					t_max_min = t_max.z;
-					t_max.z += ray.t.z * cell_size, cell_pos_i.z += ray.step.z, ray.hit_side = 2;
+					t_max.z += t.z, cell_pos_i.z += ray.step.z, ray.hit_side = 2;
 				}
 			}
 			else {
 				if (t_max.y < t_max.z) {
 					t_max_min = t_max.y;
-					t_max.y += ray.t.y * cell_size, cell_pos_i.y += ray.step.y, ray.hit_side = 1;
+					t_max.y += t.y, cell_pos_i.y += ray.step.y, ray.hit_side = 1;
 				}
 				else {
 					t_max_min = t_max.z;
-					t_max.z += ray.t.z * cell_size, cell_pos_i.z += ray.step.z, ray.hit_side = 2;
+					t_max.z += t.z, cell_pos_i.z += ray.step.z, ray.hit_side = 2;
 				}
 			}
 		}
