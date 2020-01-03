@@ -5,9 +5,12 @@ struct Cell
 	enum Type {
 		Empty,
 		Solid,
-		Mirror,
-		Grass,
-		Water
+		Mirror
+	};
+
+	enum Texture {
+		None,
+		Grass
 	};
 
 	Cell()
@@ -15,4 +18,5 @@ struct Cell
 	{}
 
 	Type type;
+	Texture texture;
 };

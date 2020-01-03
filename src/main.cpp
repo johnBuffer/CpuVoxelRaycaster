@@ -25,7 +25,7 @@ int32_t main()
 	window.setMouseCursorVisible(false);
 	//window.setFramerateLimit(30);
 
-	constexpr float render_scale = 0.5f;
+	constexpr float render_scale = 1.0f;
 	constexpr uint32_t RENDER_WIDTH  = uint32_t(win_width  * render_scale);
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
@@ -38,15 +38,15 @@ int32_t main()
 
 	Blur blur(RENDER_WIDTH, RENDER_HEIGHT, 0.5f);
 
-	float movement_speed = 1.5f;
+	float movement_speed = 3.5f;
 
 	const float body_radius = 0.4f;
 	
 	const glm::vec3 camera_origin(float(RENDER_WIDTH) * 0.5f, float(RENDER_HEIGHT) * 0.5f, -0.85f * float(RENDER_WIDTH));
 	
-	constexpr int32_t size = 1024;
+	constexpr int32_t size = 256;
 	constexpr int32_t grid_size_x = size;
-	constexpr int32_t grid_size_y = size / 8;
+	constexpr int32_t grid_size_y = size / 2;
 	constexpr int32_t grid_size_z = size;
 	//using Volume = Grid3D<grid_size_x, grid_size_y, grid_size_z>;
 	using Volume = SVO;
@@ -69,10 +69,10 @@ int32_t main()
 			int32_t max_height = grid_size_y;
 			int32_t height = int32_t(64.0f * myNoise.GetNoise(float(0.5f * x), float(0.5f * z)) + 32);
 
-			grid.setCell(Cell::Water, x, grid_size_y - 1, z);
+			grid.setCell(Cell::Mirror, Cell::None, x, grid_size_y - 1, z);
 
 			for (int y(1); y < std::min(max_height, height); ++y) {
-				grid.setCell(Cell::Grass, x, grid_size_y - y - 1, z);
+				grid.setCell(Cell::Solid, Cell::Grass, x, grid_size_y - y - 1, z);
 			}
 		}
 	}
@@ -320,7 +320,7 @@ int32_t main()
 					glm::vec3 ray = glm::rotate(screen_position - camera_origin, camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
 					ray = glm::rotate(ray, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
 
-					raycaster.render_ray(sf::Vector2i(x, y), camera.position, glm::normalize(ray), time);
+					raycaster.renderRay(sf::Vector2i(x, y), camera.position, glm::normalize(ray), time);
 				}
 			}
 		});

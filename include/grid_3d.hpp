@@ -106,7 +106,7 @@ inline HitPoint Grid3D<X, Y, Z>::castRay(const glm::vec3& position, const glm::v
 				float hit_y = position.y + t_max_min * direction.y;
 				float hit_z = position.z + t_max_min * direction.z;
 
-				point.type = cell.type;
+				point.cell = &cell;
 				point.position = glm::vec3(hit_x, hit_y, hit_z);
 
 				if (hit_side == 0) {

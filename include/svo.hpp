@@ -73,10 +73,10 @@ public:
 		return ray.point;
 	}
 
-	void setCell(Cell::Type type, uint32_t x, uint32_t y, uint32_t z)
+	void setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z)
 	{
 		const uint32_t max_size = uint32_t(std::pow(2, m_max_level));
-		rec_setCell(type, x, y, z, m_root, max_size);
+		rec_setCell(type, texture, x, y, z, m_root, max_size);
 	}
 
 	inline static bool checkCell(const glm::vec3& cell_coords)
@@ -93,7 +93,7 @@ private:
 	Node* m_root;
 	const uint32_t m_max_level = 10U;
 
-	void rec_setCell(Cell::Type type, uint32_t x, uint32_t y, uint32_t z, Node* node, uint32_t size)
+	void rec_setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z, Node* node, uint32_t size)
 	{
 		if (!node) {
 			return;
@@ -101,6 +101,7 @@ private:
 
 		if (size == 1) {
 			node->cell.type = type;
+			node->cell.texture = texture;
 			node->leaf = true;
 			return;
 		}
@@ -114,7 +115,7 @@ private:
 			node->sub[cell_x][cell_y][cell_z] = new Node();
 		}
 
-		rec_setCell(type, x - cell_x * sub_size, y - cell_y * sub_size, z - cell_z * sub_size, node->sub[cell_x][cell_y][cell_z], sub_size);
+		rec_setCell(type, texture, x - cell_x * sub_size, y - cell_y * sub_size, z - cell_z * sub_size, node->sub[cell_x][cell_y][cell_z], sub_size);
 	}
 
 	void rec_castRay(Ray& ray, const glm::vec3& position, uint32_t cell_size, const Node* node) const {
@@ -140,7 +141,7 @@ private:
 					const Cell& cell = sub_node->cell;
 					const glm::vec3 hit = ray.start + (t_total + t_max_min) * ray.direction;
 
-					point.type = cell.type;
+					point.cell = &cell;
 					point.position = hit;
 
 					if (ray.hit_side == 0) {
@@ -164,7 +165,7 @@ private:
 					const glm::vec3 sub_position = (position + t_max_min * ray.direction) - cell_pos_i * float(cell_size);
 					ray.t_total = t_total + t_max_min;
 					rec_castRay(ray, sub_position, sub_size, sub_node);
-					if (ray.point.type != Cell::Empty) {
+					if (ray.point.cell) {
 						return;
 					}
 				}
