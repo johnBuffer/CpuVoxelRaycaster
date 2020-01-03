@@ -23,7 +23,7 @@ int32_t main()
 
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
 	window.setMouseCursorVisible(false);
-	window.setFramerateLimit(60.0f);
+	window.setFramerateLimit(30.0f);
 
 	constexpr float render_scale = 0.5f;
 	constexpr uint32_t RENDER_WIDTH  = win_width  * render_scale;
@@ -38,22 +38,22 @@ int32_t main()
 
 	Blur blur(RENDER_WIDTH, RENDER_HEIGHT, 0.5f);
 
-	float movement_speed = 1.0f;
+	float movement_speed = 5.5f;
 
 	const float body_radius = 0.4f;
 	
 	const glm::vec3 camera_origin(float(RENDER_WIDTH) * 0.5f, float(RENDER_HEIGHT) * 0.5f, -0.85f * float(RENDER_WIDTH));
 	
-	constexpr int32_t grid_size_x = 1024;
-	constexpr int32_t grid_size_y = 1024;
-	constexpr int32_t grid_size_z = 1024;
+	constexpr int32_t grid_size_x = 256;
+	constexpr int32_t grid_size_y = 256;
+	constexpr int32_t grid_size_z = 256;
 	//using Volume = Grid3D<grid_size_x, grid_size_y, grid_size_z>;
 	using Volume = SVO;
 	Volume* grid_raw = new Volume();
 	Volume& grid = *grid_raw;
 
 	Camera camera;
-	camera.position = glm::vec3(1, 1, 1);
+	camera.position = glm::vec3(2.5, 2.5, 2.5);
 	camera.view_angle = glm::vec2(0.0f);
 
 	FlyController controller;
@@ -66,9 +66,9 @@ int32_t main()
 	for (int x = 0; x < grid_size_x; x++) {
 		for (int z = 0; z < grid_size_z; z++) {
 			int max_height = grid_size_y;
-			int height = 32.0f * myNoise.GetNoise(x, z);
+			int height = 35.0f * myNoise.GetNoise(x, z);
 
-			//grid.setCell(Cell::Water, x, grid_size_y - 1, z);
+			grid.setCell(Cell::Grass, x, grid_size_y - 1, z);
 
 			for (int y(1); y < std::min(max_height, height); ++y) {
 				grid.setCell(Cell::Grass, x, grid_size_y - y - 1, z);
@@ -138,9 +138,9 @@ int32_t main()
 
 	sf::VertexArray screen_pixels(sf::Points, RENDER_WIDTH * RENDER_HEIGHT);
 
-	RayCaster raycaser(grid, screen_pixels, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
+	RayCaster raycaster(grid, screen_pixels, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
 
-	const uint32_t thread_count = 16U;
+	const uint32_t thread_count = 1U;
 	const uint32_t area_count = sqrt(thread_count);
 	swrm::Swarm swarm(thread_count);
 
@@ -156,7 +156,7 @@ int32_t main()
 	//shader_threshold.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/denoiser.frag", sf::Shader::Fragment);
 
 	bool mouse_control = true;
-	bool use_denoise = true;
+	bool use_denoise = false;
 	bool mode_demo = false;
 
 	int32_t checker_board_offset = 0;
@@ -165,7 +165,7 @@ int32_t main()
 	screen_capture.create(win_width, win_height);
 	uint32_t frame_count = 0U;
 
-	bool left(false), right(false), forward(false), backward(false);
+	bool left(false), right(false), forward(false), backward(false), up(false);
 
 	std::ofstream stream;
 	stream.open("C:/Users/jeant/Desktop/recs/lol.txt");
@@ -209,6 +209,9 @@ int32_t main()
 				case sf::Keyboard::D:
 					right = true;
 					break;
+				case sf::Keyboard::Space:
+					up = true;
+					break;
 				case sf::Keyboard::A:
 					use_denoise = !use_denoise;
 					break;
@@ -242,6 +245,9 @@ int32_t main()
 				case sf::Keyboard::D:
 					right = false;
 					break;
+				case sf::Keyboard::Space:
+					up = false;
+					break;
 				default:
 					break;
 				}
@@ -260,6 +266,10 @@ int32_t main()
 		}
 		else if (right) {
 			move -= glm::vec3(-camera_vec.z, 0.0f, camera_vec.x) * movement_speed;
+		}
+
+		if (up) {
+			move += glm::vec3(0.0f, -1.0f, 0.0f) * movement_speed;
 		}
 
 		if (!replay.empty()) {
@@ -284,7 +294,7 @@ int32_t main()
 		controller.move(move, camera, grid);
 		
 		const glm::vec3 light_position = glm::vec3(grid_size_x*0.5f, 0.0f, grid_size_z*0.5f) + glm::rotate(glm::vec3(0.0f, -500.0f, 1000.0f), 0.2f * time, glm::vec3(0.0f, 1.0f, 0.0f));
-		raycaser.setLightPosition(light_position);
+		raycaster.setLightPosition(light_position);
 
 		checker_board_offset = 1 - checker_board_offset;
 
@@ -304,12 +314,12 @@ int32_t main()
 			const uint32_t start_y = thread_id / 4;
 
 			for (int x(start_x * area_width); x < (start_x + 1) * area_width; ++x) {
-				for (int y(start_y * area_height); y < (start_y + 1) * area_height; y++) {
+				for (int y(start_y * area_height); y < (start_y + 1) * area_height; ++y) {
 					const glm::vec3 screen_position(x, y, 0.0f);
 					glm::vec3 ray = glm::rotate(screen_position - camera_origin, camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
 					ray = glm::rotate(ray, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
 
-					raycaser.render_ray(sf::Vector2i(x, y), camera.position, glm::normalize(ray), time);
+					raycaster.render_ray(sf::Vector2i(x, y), camera.position, glm::normalize(ray), time);
 				}
 			}
 		});

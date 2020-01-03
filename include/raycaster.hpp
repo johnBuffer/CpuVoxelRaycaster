@@ -28,12 +28,13 @@ struct RayCaster
 		const uint32_t y = pixel.y;
 		va[x * render_size.y + y].position = sf::Vector2f(x, y);
 		va[x * render_size.y + y].color = sky_color;
-	
+
 		uint32_t complexity = 0U;
 		const sf::Color color = cast_ray(start, direction, 1.5f * time, 0U, complexity);
 
 		va[x * render_size.y + y].color = color;
 	}
+	
 
 	sf::Color cast_ray(const glm::vec3& start, const glm::vec3& direction, float time, int32_t bounds, uint32_t& complexity)
 	{
@@ -44,7 +45,7 @@ struct RayCaster
 		complexity += intersection.complexity;
 		
 		if (intersection.type == Cell::Solid || intersection.type == Cell::Grass) {
-			//sf::Color color = getColorFromHitPoint(intersection);
+			//sf::Color color = getColorFromNormal(intersection.normal);
 			//return color;
 			const float c = (complexity);
 			return sf::Color(c, c, c);
