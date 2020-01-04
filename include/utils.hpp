@@ -29,6 +29,13 @@ void mult(sf::Color& color1, const sf::Color& color2)
 	color1.b = std::uint8_t(color1.b * color2.b * inv);
 }
 
+float getRand(float min, float max)
+{
+	const float rand_val = float(rand() % 100) / 100.0f;
+
+	return min + (max - min) * rand_val;
+}
+
 
 float frac(float f)
 {

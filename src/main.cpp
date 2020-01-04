@@ -44,11 +44,11 @@ int32_t main()
 	
 	const glm::vec3 camera_origin(float(RENDER_WIDTH) * 0.5f, float(RENDER_HEIGHT) * 0.5f, -0.85f * float(RENDER_WIDTH));
 	
-	constexpr int32_t size = 256;
+	constexpr int32_t size = 1024;
 	constexpr int32_t grid_size_x = size;
 	constexpr int32_t grid_size_y = size / 2;
 	constexpr int32_t grid_size_z = size;
-	//using Volume = Grid3D<grid_size_x, grid_size_y, grid_size_z>;
+	using VolumeClose = Grid3D<grid_size_x, grid_size_y, grid_size_z>;
 	using Volume = SVO;
 	Volume* grid_raw = new Volume();
 	Volume& grid = *grid_raw;
@@ -212,6 +212,9 @@ int32_t main()
 					break;
 				case sf::Keyboard::Space:
 					up = true;
+					break;
+				case sf::Keyboard::O:
+					raycaster.use_ao = !raycaster.use_ao;
 					break;
 				case sf::Keyboard::A:
 					use_denoise = !use_denoise;

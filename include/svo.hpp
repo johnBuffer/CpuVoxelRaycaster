@@ -63,12 +63,12 @@ public:
 		m_root = new Node();
 	}
 
-	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction) const override
+	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, uint32_t max_iter) const override
 	{
 		Ray ray(position, direction);
 
 		const uint32_t max_cell_size = uint32_t(std::pow(2, m_max_level - 1));
-		rec_castRay(ray, position, max_cell_size, m_root);
+		rec_castRay(ray, position, max_cell_size, m_root, max_iter);
 
 		return ray.point;
 	}
@@ -118,7 +118,7 @@ private:
 		rec_setCell(type, texture, x - cell_x * sub_size, y - cell_y * sub_size, z - cell_z * sub_size, node->sub[cell_x][cell_y][cell_z], sub_size);
 	}
 
-	void rec_castRay(Ray& ray, const glm::vec3& position, uint32_t cell_size, const Node* node) const {
+	void rec_castRay(Ray& ray, const glm::vec3& position, uint32_t cell_size, const Node* node, uint32_t max_iter) const {
 
 		glm::vec3 cell_pos_i = glm::ivec3(position.x / cell_size, position.y / cell_size, position.z / cell_size);
 		clamp(cell_pos_i.x, 0.0f, 1.0f);
@@ -130,7 +130,7 @@ private:
 
 		float t_max_min = 0.0f;
 		const float t_total = ray.t_total;
-		while (checkCell(cell_pos_i)) {
+		while (checkCell(cell_pos_i) && ray.point.complexity < max_iter) {
 			// Increase pixel complexity
 			++ray.point.complexity;
 			// We enter the sub node
@@ -164,7 +164,7 @@ private:
 					const uint32_t sub_size = cell_size >> 1;
 					const glm::vec3 sub_position = (position + t_max_min * ray.direction) - cell_pos_i * float(cell_size);
 					ray.t_total = t_total + t_max_min;
-					rec_castRay(ray, sub_position, sub_size, sub_node);
+					rec_castRay(ray, sub_position, sub_size, sub_node, max_iter);
 					if (ray.point.cell) {
 						return;
 					}
