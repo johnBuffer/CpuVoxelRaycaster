@@ -67,9 +67,6 @@ struct RayCaster
 			}
 		}
 
-		const float fog_intensity = getFogValue(context, intersection);
-		add(result, fog_intensity);
-
 		return result;
 	}
 
