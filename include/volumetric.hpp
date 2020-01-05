@@ -7,7 +7,7 @@
 struct HitPoint
 {
 	HitPoint()
-		: cell(nullptr)
+		: data(nullptr)
 		, complexity(0)
 	{}
 
@@ -15,7 +15,7 @@ struct HitPoint
 	glm::vec3 normal;
 	glm::vec2 voxel_coord;
 
-	const Cell* cell;
+	const Cell* data;
 	float distance;
 
 	uint32_t complexity;

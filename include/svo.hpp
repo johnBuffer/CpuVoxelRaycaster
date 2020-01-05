@@ -3,27 +3,65 @@
 #include "volumetric.hpp"
 #include "utils.hpp"
 
-
-struct Node
+struct MipmapCell
 {
-	Node()
-	{
-		for (int x(0); x < 2; ++x) {
-			for (int y(0); y < 2; ++y) {
-				for (int z(0); z < 2; ++z) {
-					sub[x][y][z] = nullptr;
-				}
-			}
-		}
-
-		leaf = false;
-	}
-
-	Node* sub[2][2][2];
-	bool leaf;
-	Cell cell;
+	bool empty;
+	glm::ivec3 start_position;
+	Cell* data;
 };
 
+struct MipmapGrid
+{
+	MipmapGrid() = default;
+	MipmapGrid(const uint32_t level, const uint32_t level_count)
+		// The level N (starting at 0) has a size of 2^(N+1)
+		: size(uint32_t(std::pow(2, level + 1)))
+		, cell_size(uint32_t(std::pow(2, level_count) / std::pow(2, level + 1)))
+		, leaf_level(level == level_count - 1)
+	{
+		cells.resize(size * size * size);
+		for (MipmapCell& cell : cells) {
+			cell.empty = true;
+			cell.data = nullptr;
+		}
+	}
+
+	MipmapCell& get(const uint32_t x, const uint32_t y, const uint32_t z)
+	{
+		return cells[z * size * size + y * size + x];
+	}
+
+	MipmapCell& get(const glm::ivec3& coords)
+	{
+		return get(coords.x, coords.y, coords.z);
+	}
+
+	MipmapCell& get(const glm::vec3& coords)
+	{
+		return get(uint32_t(coords.x), uint32_t(coords.y), uint32_t(coords.z));
+	}
+
+	const MipmapCell& get(const uint32_t x, const uint32_t y, const uint32_t z) const
+	{
+		return cells[z * size * size + y * size + x];
+	}
+
+	const MipmapCell& get(const glm::ivec3& coords) const
+	{
+		return get(uint32_t(coords.x), uint32_t(coords.y), uint32_t(coords.z));
+	}
+
+	const MipmapCell& get(const glm::vec3& coords) const
+	{
+		return get(uint32_t(coords.x), uint32_t(coords.y), uint32_t(coords.z));
+	}
+
+	const uint32_t size;
+	const uint32_t cell_size;
+
+	const bool leaf_level;
+	std::vector<MipmapCell> cells;
+};
 
 struct Ray
 {
@@ -60,26 +98,28 @@ class SVO : public Volumetric
 public:
 	SVO()
 	{
-		m_root = new Node();
+		for (uint32_t level(0U); level < m_level_count; ++level) {
+			m_data.emplace_back(level, m_level_count);
+		}
 	}
 
 	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction) const override
 	{
 		Ray ray(position, direction);
 
-		const uint32_t max_cell_size = uint32_t(std::pow(2, m_max_level - 1));
-		rec_castRay(ray, position, max_cell_size, m_root);
+		rec_castRay(ray, position, 4U);
 
 		return ray.point;
 	}
 
 	void setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z)
 	{
-		const uint32_t max_size = uint32_t(std::pow(2, m_max_level));
-		rec_setCell(type, texture, x, y, z, m_root, max_size);
+		for (uint32_t level(0U); level < m_level_count; ++level) {
+			setCellMipmap(type, texture, x, y, z, level);
+		}
 	}
 
-	inline static bool checkCell(const glm::vec3& cell_coords)
+	static bool checkCell(const glm::vec3& cell_coords)
 	{
 		return cell_coords.x >= 0 &&
 			   cell_coords.y >= 0 &&
@@ -89,59 +129,68 @@ public:
 			   cell_coords.z < 2;
 	}
 
-private:
-	Node* m_root;
-	const uint32_t m_max_level = 10U;
-
-	void rec_setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z, Node* node, uint32_t size)
+	bool checkCell(const glm::vec3& cell_coords, const uint32_t level) const
 	{
-		if (!node) {
-			return;
-		}
-
-		if (size == 1) {
-			node->cell.type = type;
-			node->cell.texture = texture;
-			node->leaf = true;
-			return;
-		}
-
-		const uint32_t sub_size = size / 2;
-		const uint32_t cell_x = x / sub_size;
-		const uint32_t cell_y = y / sub_size;
-		const uint32_t cell_z = z / sub_size;
-
-		if (!node->sub[cell_x][cell_y][cell_z]) {
-			node->sub[cell_x][cell_y][cell_z] = new Node();
-		}
-
-		rec_setCell(type, texture, x - cell_x * sub_size, y - cell_y * sub_size, z - cell_z * sub_size, node->sub[cell_x][cell_y][cell_z], sub_size);
+		const MipmapGrid& grid = m_data[level];
+		return cell_coords.x >= 0 &&
+			cell_coords.y >= 0 &&
+			cell_coords.z >= 0 &&
+			cell_coords.x < grid.size &&
+			cell_coords.y < grid.size &&
+			cell_coords.z < grid.size;
 	}
 
-	void rec_castRay(Ray& ray, const glm::vec3& position, uint32_t cell_size, const Node* node) const {
+private:
+	std::vector<MipmapGrid> m_data;
+	const uint32_t m_level_count = 8U;
+
+	void setCellMipmap(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z, const uint32_t level)
+	{
+		MipmapGrid& current_grid = m_data[level];
+		if (current_grid.leaf_level) {
+			MipmapCell& cell = current_grid.get(x, y, z);
+			if (!cell.data) {
+				cell.data = new Cell();
+			}
+
+			cell.data->type = type;
+			cell.data->texture = texture;
+			cell.empty = false;
+		}
+		else {
+			const uint32_t cell_size = current_grid.cell_size;
+			const uint32_t cell_x = x / cell_size;
+			const uint32_t cell_y = y / cell_size;
+			const uint32_t cell_z = z / cell_size;
+
+			current_grid.get(cell_x, cell_y, cell_z).empty = false;
+		}
+	}
+
+	void rec_castRay(Ray& ray, const glm::vec3& position, const uint32_t level) const
+	{
+		const MipmapGrid& current_level = m_data[level];
+		const uint32_t cell_size = current_level.cell_size;
 
 		glm::vec3 cell_pos_i = glm::ivec3(position.x / cell_size, position.y / cell_size, position.z / cell_size);
-		clamp(cell_pos_i.x, 0.0f, 1.0f);
-		clamp(cell_pos_i.y, 0.0f, 1.0f);
-		clamp(cell_pos_i.z, 0.0f, 1.0f);
 		glm::vec3 t_max = ((cell_pos_i + ray.dir) * float(cell_size) - position) / ray.direction;
 
 		const glm::vec3 t = float(cell_size) * ray.t;
 
 		float t_max_min = 0.0f;
 		const float t_total = ray.t_total;
-		while (checkCell(cell_pos_i)) {
+		while (checkCell(cell_pos_i, level)) {
 			// Increase pixel complexity
 			++ray.point.complexity;
 			// We enter the sub node
-			const Node* sub_node = node->sub[uint32_t(cell_pos_i.x)][uint32_t(cell_pos_i.y)][uint32_t(cell_pos_i.z)];
-			if (sub_node) {
-				if (sub_node->leaf) {
+			const MipmapCell& sub_node = current_level.get(cell_pos_i);
+			if (!sub_node.empty) {
+				if (current_level.leaf_level) {
 					HitPoint& point = ray.point;
-					const Cell& cell = sub_node->cell;
+					const Cell& data = *sub_node.data;
 					const glm::vec3 hit = ray.start + (t_total + t_max_min) * ray.direction;
 
-					point.cell = &cell;
+					point.data = &data;
 					point.position = hit;
 
 					if (ray.hit_side == 0) {
@@ -161,11 +210,10 @@ private:
 					return;
 				}
 				else {
-					const uint32_t sub_size = cell_size >> 1;
-					const glm::vec3 sub_position = (position + t_max_min * ray.direction) - cell_pos_i * float(cell_size);
+					const glm::vec3 sub_position = position + t_max_min * ray.direction;
 					ray.t_total = t_total + t_max_min;
-					rec_castRay(ray, sub_position, sub_size, sub_node);
-					if (ray.point.cell) {
+					rec_castRay(ray, sub_position, level+1U);
+					if (ray.point.data) {
 						return;
 					}
 				}

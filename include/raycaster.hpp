@@ -59,14 +59,16 @@ struct RayCaster
 		context.complexity += intersection.complexity;
 		context.distance += intersection.distance;
 
-		if (intersection.cell) {
-			const Cell& cell = *(intersection.cell);
+		if (intersection.data) {
+			const Cell& data = *(intersection.data);
 
-			if (cell.type == Cell::Solid) {
+			if (data.type == Cell::Solid) {
 				result = getTextureColorFromHitPoint(intersection);
 			}
 		}
 
+		const uint32_t c = std::min(255U, std::max(0U, context.complexity / 10U));
+		add(result, c);
 		return result;
 	}
 
@@ -86,7 +88,7 @@ struct RayCaster
 
 	const sf::Color getTextureColorFromHitPoint(const HitPoint& point)
 	{
-		if (point.cell->texture == Cell::Grass) {
+		if (point.data->texture == Cell::Grass) {
 			return getColorFromVoxelCoord(getTextureFromNormal(point.normal), point.voxel_coord);
 		}
 		else {

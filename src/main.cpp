@@ -76,66 +76,6 @@ int32_t main()
 			}
 		}
 	}
-	/*
-	int sky_mirror_offset = 50;
-	for (int x = sky_mirror_offset; x < grid_size_x - sky_mirror_offset; x++) {
-		for (int z = sky_mirror_offset; z < grid_size_z - sky_mirror_offset; z++) {
-			if (x == sky_mirror_offset || x == grid_size_x-sky_mirror_offset -1 || z == sky_mirror_offset || z == grid_size_z-sky_mirror_offset-1) {
-				grid.setCell(Cell::Solid, x, 0, z);
-			}
-			else {
-				grid.setCell(Cell::Mirror, x, 0, z);
-			}
-		}
-	}
-
-	for (int x = 100; x < 150; x++) {
-		for (int y(10); y < 60; ++y) {
-			if (x == 100 || x == 149 || y == 10 || y == 59) {
-				grid.setCell(Cell::Solid, x, grid_size_y - y - 1, 50);
-			}
-			else {
-				grid.setCell(Cell::Mirror, x, grid_size_y - y - 1, 50);
-			}
-		}
-	}
-
-	for (int x = 100; x < 150; x++) {
-		for (int y(10); y < 60; ++y) {
-			if (x == 100 || x == 149 || y == 10 || y == 59) {
-				grid.setCell(Cell::Solid, x, grid_size_y - y - 1, 150);
-			}
-			else {
-				grid.setCell(Cell::Mirror, x, grid_size_y - y - 1, 150);
-			}
-		}
-	}
-
-	for (int z = 50; z < 150; z++) {
-		for (int y(10); y < 60; ++y) {
-			if (z == 50 || z == 149 || y == 10 || y == 59) {
-				grid.setCell(Cell::Solid, 24, grid_size_y - y - 1, z);
-			}
-			else {
-				grid.setCell(Cell::Mirror, 24, grid_size_y - y - 1, z);
-			}
-		}
-	}
-	*/
-	/*for (int z = 50; z < 150; z++) {
-		for (int y(10); y < 60; ++y) {
-			if (z == 50 || z == 149 || y == 10 || y == 59) {
-				grid.setCell(Cell::Solid, 256-24, grid_size_y - y - 1, z);
-			}
-			else {
-				grid.setCell(Cell::Mirror, 256 - 24, grid_size_y - y - 1, z);
-			}
-		}
-	}*/
-
-	/*for (int i(12000); i--;) {
-		grid.setCell(Cell::Solid, rand()% grid_size_x, rand() % grid_size_y, rand() % grid_size_z);
-	}*/
 
 	sf::VertexArray screen_pixels(sf::Points, RENDER_WIDTH * RENDER_HEIGHT);
 
@@ -149,13 +89,6 @@ int32_t main()
 
 	float time = 0.0f;
 
-	sf::Shader shader;
-	sf::Shader shader_threshold;
-	sf::Shader shader_denoise;
-	shader.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/median_3.frag", sf::Shader::Fragment);
-	//shader_threshold.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/threshold.frag", sf::Shader::Fragment);
-	//shader_threshold.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/denoiser.frag", sf::Shader::Fragment);
-
 	bool mouse_control = true;
 	bool use_denoise = false;
 	bool mode_demo = false;
@@ -168,10 +101,8 @@ int32_t main()
 
 	bool left(false), right(false), forward(false), backward(false), up(false);
 
-	std::ofstream stream;
-	stream.open("C:/Users/jeant/Desktop/recs/lol.txt");
-
-	std::list<ReplayElements> replay;
+	float mray_s_mean = 0.0f;
+	float value_count = 0.0f;
 
 	while (window.isOpen())
 	{
@@ -224,7 +155,6 @@ int32_t main()
 					mode_demo = !mode_demo;
 					window.setMouseCursorVisible(!mode_demo && !mouse_control);
 					if (mode_demo) {
-						replay = ReplayElements::loadFromFile("C:/Users/jeant/Desktop/recs/lol3.txt");
 						time = 0.0f;
 					}
 					break;
@@ -273,25 +203,6 @@ int32_t main()
 			move += glm::vec3(0.0f, -1.0f, 0.0f) * movement_speed;
 		}
 
-		if (!replay.empty()) {
-			std::cout << replay.front().timestamp << std::endl;
-			while (time > replay.front().timestamp) {
-				const auto& last = replay.front();
-				
-				camera.position.x = last.x;
-				camera.position.y = last.y;
-				camera.position.z = last.z;
-
-				camera.view_angle.x = last.view_x;
-				camera.view_angle.y = last.view_y;
-
-				replay.pop_front();
-				if (replay.empty()) {
-					break;
-				}
-			}
-		}
-
 		controller.move(move, camera, grid);
 		
 		const glm::vec3 light_position = glm::vec3(grid_size_x*0.5f, 0.0f, grid_size_z*0.5f) + glm::rotate(glm::vec3(0.0f, -500.0f, 1000.0f), 0.2f * time, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -299,15 +210,8 @@ int32_t main()
 
 		checker_board_offset = 1 - checker_board_offset;
 
-		/*if (mode_demo) {
-			camera.position.x = (0.5f * grid_size_x - 10.0f) * cos(0.1f * time) + 0.5f * grid_size_x;
-			camera.position.z = (0.5f * grid_size_z - 10.0f) * sin(0.1f * time) + 0.5f * grid_size_z;
-			camera.position.y = 90.0 + 80.0f*sin(0.1f * time);
-
-			camera.view_angle.x = -0.1f * time - PI * 0.5f;
-			camera.view_angle.y = -PI*0.15f + PI*0.1f * sin(0.1f * time);
-		}*/
-
+		sf::Clock render_clock;
+		uint32_t ray_count = 0U;
 		auto group = swarm.execute([&](uint32_t thread_id, uint32_t max_thread) {
 			const uint32_t area_width = RENDER_WIDTH / area_count;
 			const uint32_t area_height = RENDER_HEIGHT / area_count;
@@ -316,6 +220,7 @@ int32_t main()
 
 			for (uint32_t x(start_x * area_width); x < (start_x + 1) * area_width; ++x) {
 				for (uint32_t y(start_y * area_height + (x+checker_board_offset)%2); y < (start_y + 1) * area_height; y += 2) {
+					++ray_count;
 					const glm::vec3 screen_position(x, y, 0.0f);
 					glm::vec3 ray = glm::rotate(screen_position - camera_origin, camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
 					ray = glm::rotate(ray, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -327,51 +232,22 @@ int32_t main()
 
 		group.waitExecutionDone();
 
+		const float render_time = render_clock.getElapsedTime().asSeconds();
+		value_count += 1.0f;
+		float instant_measure = (ray_count / render_time) / 1000000.0f;
+		mray_s_mean += instant_measure;
+		std::cout << "MRays/s " << instant_measure << " MEAN : " << mray_s_mean / value_count << std::endl;
+
 		window.clear(sf::Color::Black);
 		render_tex.draw(screen_pixels);
 		render_tex.display();
-
-		/*denoised_tex.draw(sf::Sprite(render_tex.getTexture()), &shader_denoise);
-		denoised_tex.display();
-
-		render_tex.draw(sf::Sprite(denoised_tex.getTexture()));
-		render_tex.display();*/
-
-		/*bloom_tex.draw(sf::Sprite(render_tex.getTexture()), &shader_threshold);
-		bloom_tex.display();
-
-		render_tex.draw(blur.apply(bloom_tex.getTexture(), 1), sf::BlendAdd);
-		render_tex.display();*/
 		
 		sf::Sprite render_sprite(render_tex.getTexture());
 		render_sprite.setScale(1.0f / render_scale, 1.0f / render_scale);
 
-		if (use_denoise && !mode_demo) {
-			window.draw(render_sprite, &shader);
-		}
-		else {
-			window.draw(render_sprite);
-		}
+		window.draw(render_sprite);
 		window.display();
 
-		if (mode_demo) {
-			screen_capture.update(window);
-			sf::Image image = screen_capture.copyToImage();
-
-			std::stringstream ssx;
-			ssx << "C:/Users/jeant/Desktop/voxels_dumps/img_" << frame_count++ << ".bmp";
-			image.saveToFile(ssx.str());
-		}
-
-		stream << time << " " << camera.position.x << " " << camera.position.y << " " << camera.position.z << " " << camera.view_angle.x << " " << camera.view_angle.y << std::endl;
-
-		if (!mode_demo) {
-			time += frame_clock.getElapsedTime().asSeconds();
-		}
-		else {
-			time += 0.016f;
-		}
+		time += frame_clock.getElapsedTime().asSeconds();
 	}
-
-	stream.close();
 }
