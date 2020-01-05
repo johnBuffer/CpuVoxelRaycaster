@@ -25,7 +25,7 @@ int32_t main()
 	window.setMouseCursorVisible(false);
 	//window.setFramerateLimit(30);
 
-	constexpr float render_scale = 1.0f;
+	constexpr float render_scale = 0.5f;
 	constexpr uint32_t RENDER_WIDTH  = uint32_t(win_width  * render_scale);
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
@@ -48,13 +48,13 @@ int32_t main()
 	constexpr int32_t grid_size_x = size;
 	constexpr int32_t grid_size_y = size / 2;
 	constexpr int32_t grid_size_z = size;
-	//using Volume = Grid3D<grid_size_x, grid_size_y, grid_size_z>;
-	using Volume = SVO;
+	//using Volume = SVO;
+	using Volume = Grid3D<grid_size_x, grid_size_y, grid_size_z>;
 	Volume* grid_raw = new Volume();
 	Volume& grid = *grid_raw;
 
 	Camera camera;
-	camera.position = glm::vec3(2, 2, 2);
+	camera.position = glm::vec3(100, 100, 100);
 	camera.view_angle = glm::vec2(0.0f);
 
 	FlyController controller;
@@ -81,7 +81,7 @@ int32_t main()
 
 	RayCaster raycaster(grid, screen_pixels, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
 
-	const uint32_t thread_count = 16U;
+	const uint32_t thread_count = 1U;
 	const uint32_t area_count = uint32_t(sqrt(thread_count));
 	swrm::Swarm swarm(thread_count);
 
@@ -114,6 +114,9 @@ int32_t main()
 			const float mouse_sensitivity = 0.005f;
 			controller.updateCameraView(mouse_sensitivity * glm::vec2(mouse_pos.x - win_width  * 0.5f, (win_height  * 0.5f) - mouse_pos.y), camera);
 		}
+
+		camera.view_angle.x = PI * 0.25f;
+		camera.view_angle.y = -PI * 0.1f;
 
 		glm::vec3 camera_vec = glm::rotate(glm::vec3(0.0f, 0.0f, 1.0f), camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
 		camera_vec = glm::rotate(camera_vec, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));

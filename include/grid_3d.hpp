@@ -15,7 +15,7 @@ public:
 
 	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction) const override;
 
-	void setCell(Cell::Type type, uint32_t x, uint32_t y, uint32_t z);
+	void setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z);
 
 	const Cell& getCellAt(const glm::vec3& position) const
 	{
@@ -132,7 +132,8 @@ inline HitPoint Grid3D<X, Y, Z>::castRay(const glm::vec3& position, const glm::v
 }
 
 template<int32_t X, int32_t Y, int32_t Z>
-inline void Grid3D<X, Y, Z>::setCell(Cell::Type type, uint32_t x, uint32_t y, uint32_t z)
+inline void Grid3D<X, Y, Z>::setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z)
 {
 	m_cells[x][y][z].type = type;
+	m_cells[x][y][z].texture = texture;
 }

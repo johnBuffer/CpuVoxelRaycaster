@@ -107,7 +107,7 @@ public:
 	{
 		Ray ray(position, direction);
 
-		rec_castRay(ray, position, 4U);
+		stack_castRay(ray, position, 0U);
 
 		return ray.point;
 	}
@@ -131,13 +131,13 @@ public:
 
 	bool checkCell(const glm::vec3& cell_coords, const uint32_t level) const
 	{
-		const MipmapGrid& grid = m_data[level];
+		const uint32_t grid_size = m_data[level].size;
 		return cell_coords.x >= 0 &&
 			cell_coords.y >= 0 &&
 			cell_coords.z >= 0 &&
-			cell_coords.x < grid.size &&
-			cell_coords.y < grid.size &&
-			cell_coords.z < grid.size;
+			cell_coords.x < grid_size &&
+			cell_coords.y < grid_size &&
+			cell_coords.z < grid_size;
 	}
 
 private:
@@ -164,6 +164,91 @@ private:
 			const uint32_t cell_z = z / cell_size;
 
 			current_grid.get(cell_x, cell_y, cell_z).empty = false;
+		}
+	}
+
+	void stack_castRay(Ray& ray, const glm::vec3& position_, const int32_t start_level) const
+	{
+		int32_t level = start_level;
+
+		glm::vec3 position = position_;
+
+		while (level > -1) {
+			const MipmapGrid& current_level = m_data[level];
+			const uint32_t cell_size = current_level.cell_size;
+			const uint32_t top_size = current_level.size  * 2U;
+
+			const glm::ivec3 cell_position_i = glm::ivec3(position.x / cell_size, position.y / cell_size, position.z / cell_size);
+			glm::vec3 cell_position = cell_position_i;
+			const glm::vec3 cell_start_position(cell_position_i.x % top_size, cell_position_i.y % top_size, cell_position_i.z % top_size);
+			glm::vec3 t_max = ((cell_position + ray.dir) * float(cell_size) - position) / ray.direction;
+
+			const glm::vec3 t = float(cell_size) * ray.t;
+
+			float t_max_min = 0.0f;
+			const float t_total = ray.t_total;
+
+			while (checkCell(cell_start_position + cell_position)) {
+				// Increase pixel complexity
+				++ray.point.complexity;
+				// We enter the sub node
+				const MipmapCell& sub_node = current_level.get(cell_position);
+				if (!sub_node.empty) {
+					if (current_level.leaf_level) {
+						HitPoint& point = ray.point;
+						const Cell& data = *sub_node.data;
+						const glm::vec3 hit = ray.start + (t_total + t_max_min) * ray.direction;
+
+						point.data = &data;
+						point.position = hit;
+
+						if (ray.hit_side == 0) {
+							point.normal = glm::vec3(-ray.step.x, 0.0f, 0.0f);
+							point.voxel_coord = glm::vec2(1.0f - frac(hit.z), frac(hit.y));
+						}
+						else if (ray.hit_side == 1) {
+							point.normal = glm::vec3(0.0f, -ray.step.y, 0.0f);
+							point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.z));
+						}
+						else if (ray.hit_side == 2) {
+							point.normal = glm::vec3(0.0f, 0.0f, -ray.step.z);
+							point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.y));
+						}
+
+						point.distance = t_total + t_max_min;
+						return;
+					}
+					else {
+						level+=2;
+						break;
+					}
+				}
+
+				if (t_max.x < t_max.y) {
+					if (t_max.x < t_max.z) {
+						t_max_min = t_max.x;
+						t_max.x += t.x, cell_position.x += ray.step.x, ray.hit_side = 0;
+					}
+					else {
+						t_max_min = t_max.z;
+						t_max.z += t.z, cell_position.z += ray.step.z, ray.hit_side = 2;
+					}
+				}
+				else {
+					if (t_max.y < t_max.z) {
+						t_max_min = t_max.y;
+						t_max.y += t.y, cell_position.y += ray.step.y, ray.hit_side = 1;
+					}
+					else {
+						t_max_min = t_max.z;
+						t_max.z += t.z, cell_position.z += ray.step.z, ray.hit_side = 2;
+					}
+				}
+			}
+
+			position += t_max_min * ray.direction;
+			ray.t_total = t_total + t_max_min;
+			--level;
 		}
 	}
 
