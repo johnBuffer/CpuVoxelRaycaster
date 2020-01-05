@@ -16,6 +16,9 @@
 #include "replay.hpp"
 
 
+constexpr uint32_t SUB = 2U;
+
+
 int32_t main()
 {
 	constexpr uint32_t win_width = 1280;
@@ -44,17 +47,19 @@ int32_t main()
 	
 	const glm::vec3 camera_origin(float(RENDER_WIDTH) * 0.5f, float(RENDER_HEIGHT) * 0.5f, -0.85f * float(RENDER_WIDTH));
 	
-	constexpr int32_t size = 256;
+	constexpr int32_t size = 1024;
+	//constexpr int32_t size = 256;
 	constexpr int32_t grid_size_x = size;
 	constexpr int32_t grid_size_y = size / 2;
 	constexpr int32_t grid_size_z = size;
 	//using Volume = Grid3D<grid_size_x, grid_size_y, grid_size_z>;
-	using Volume = SVO;
+	using Volume = SVO<SUB>;
 	Volume* grid_raw = new Volume();
 	Volume& grid = *grid_raw;
 
 	Camera camera;
-	camera.position = glm::vec3(2, 2, 2);
+	camera.position = glm::vec3(100, 100, 100);
+	//camera.position = glm::vec3(100, 400, 100);
 	camera.view_angle = glm::vec2(0.0f);
 
 	FlyController controller;
@@ -139,7 +144,7 @@ int32_t main()
 
 	sf::VertexArray screen_pixels(sf::Points, RENDER_WIDTH * RENDER_HEIGHT);
 
-	RayCaster raycaster(grid, screen_pixels, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
+	RayCaster<SUB> raycaster(grid, screen_pixels, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
 
 	const uint32_t thread_count = 16U;
 	const uint32_t area_count = uint32_t(sqrt(thread_count));
@@ -173,6 +178,9 @@ int32_t main()
 
 	std::list<ReplayElements> replay;
 
+	float mray_s_mean = 0.0f;
+	float value_count = 0.0f;
+
 	while (window.isOpen())
 	{
 		sf::Clock frame_clock;
@@ -183,7 +191,9 @@ int32_t main()
 			const float mouse_sensitivity = 0.005f;
 			controller.updateCameraView(mouse_sensitivity * glm::vec2(mouse_pos.x - win_width  * 0.5f, (win_height  * 0.5f) - mouse_pos.y), camera);
 		}
-
+		
+		//camera.view_angle = glm::vec2(PI*0.25f, -0.2f);
+		
 		glm::vec3 camera_vec = glm::rotate(glm::vec3(0.0f, 0.0f, 1.0f), camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
 		camera_vec = glm::rotate(camera_vec, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
 
@@ -292,7 +302,7 @@ int32_t main()
 			}
 		}
 
-		controller.move(move, camera, grid);
+		controller.move(move, camera);
 		
 		const glm::vec3 light_position = glm::vec3(grid_size_x*0.5f, 0.0f, grid_size_z*0.5f) + glm::rotate(glm::vec3(0.0f, -500.0f, 1000.0f), 0.2f * time, glm::vec3(0.0f, 1.0f, 0.0f));
 		raycaster.setLightPosition(light_position);
@@ -308,6 +318,9 @@ int32_t main()
 			camera.view_angle.y = -PI*0.15f + PI*0.1f * sin(0.1f * time);
 		}*/
 
+		sf::Clock render_clock;
+
+		uint32_t ray_count = 0U;
 		auto group = swarm.execute([&](uint32_t thread_id, uint32_t max_thread) {
 			const uint32_t area_width = RENDER_WIDTH / area_count;
 			const uint32_t area_height = RENDER_HEIGHT / area_count;
@@ -316,6 +329,7 @@ int32_t main()
 
 			for (uint32_t x(start_x * area_width); x < (start_x + 1) * area_width; ++x) {
 				for (uint32_t y(start_y * area_height + (x+checker_board_offset)%2); y < (start_y + 1) * area_height; y += 2) {
+					++ray_count;
 					const glm::vec3 screen_position(x, y, 0.0f);
 					glm::vec3 ray = glm::rotate(screen_position - camera_origin, camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
 					ray = glm::rotate(ray, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -326,6 +340,11 @@ int32_t main()
 		});
 
 		group.waitExecutionDone();
+
+		const float render_time = render_clock.getElapsedTime().asSeconds();
+		value_count += 1.0f;
+		mray_s_mean += (ray_count / render_time) / 1000000.0f;
+		std::cout << "MRays/s " << mray_s_mean / value_count << std::endl;
 
 		window.clear(sf::Color::Black);
 		render_tex.draw(screen_pixels);

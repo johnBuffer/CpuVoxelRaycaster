@@ -14,12 +14,12 @@ struct RayContext
 };
 
 
-
+template<uint32_t SUB>
 struct RayCaster
 {
 	const float eps = 0.001f;
 
-	RayCaster(const Volumetric& volumetric_, sf::VertexArray& va_, const sf::Vector2i& render_size_)
+	RayCaster(const SVO<SUB>& volumetric_, sf::VertexArray& va_, const sf::Vector2i& render_size_)
 		: volumetric(volumetric_)
 		, va(va_)
 		, render_size(render_size_)
@@ -67,9 +67,7 @@ struct RayCaster
 			}
 		}
 
-		const float fog_intensity = getFogValue(context, intersection);
-		add(result, fog_intensity);
-
+		//return sf::Color(context.complexity, context.complexity, context.complexity);
 		return result;
 	}
 
@@ -108,7 +106,7 @@ struct RayCaster
 	sf::Image image_side;
 	sf::Image image_top;
 
-	const Volumetric& volumetric;
+	const SVO<SUB>& volumetric;
 	
 	const sf::Vector2i render_size;
 	sf::VertexArray& va;
