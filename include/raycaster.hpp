@@ -69,6 +69,7 @@ struct RayCaster
 
 		const uint32_t c = std::min(255U, std::max(0U, context.complexity / 10U));
 		add(result, c);
+		//return sf::Color(c, c, c);
 		return result;
 	}
 

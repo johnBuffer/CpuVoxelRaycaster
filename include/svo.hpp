@@ -6,7 +6,6 @@
 struct MipmapCell
 {
 	bool empty;
-	glm::ivec3 start_position;
 	Cell* data;
 };
 
@@ -107,7 +106,7 @@ public:
 	{
 		Ray ray(position, direction);
 
-		stack_castRay(ray, position, 0U);
+		stack_castRay(ray, position, 2U);
 
 		return ray.point;
 	}
@@ -142,7 +141,7 @@ public:
 
 private:
 	std::vector<MipmapGrid> m_data;
-	const uint32_t m_level_count = 8U;
+	const uint32_t m_level_count = 9U;
 
 	void setCellMipmap(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z, const uint32_t level)
 	{
@@ -173,7 +172,7 @@ private:
 
 		glm::vec3 position = position_;
 
-		while (level > -1) {
+		while (level > -1 && ray.point.complexity < 128U) {
 			const MipmapGrid& current_level = m_data[level];
 			const uint32_t cell_size = current_level.cell_size;
 			const uint32_t top_size = current_level.size  * 2U;
@@ -188,16 +187,17 @@ private:
 			float t_max_min = 0.0f;
 			const float t_total = ray.t_total;
 
-			while (checkCell(cell_start_position + cell_position)) {
+			while (checkCell(cell_position - cell_start_position) && checkCell(cell_position, level)) {
 				// Increase pixel complexity
 				++ray.point.complexity;
 				// We enter the sub node
 				const MipmapCell& sub_node = current_level.get(cell_position);
+
 				if (!sub_node.empty) {
 					if (current_level.leaf_level) {
 						HitPoint& point = ray.point;
 						const Cell& data = *sub_node.data;
-						const glm::vec3 hit = ray.start + (t_total + t_max_min) * ray.direction;
+						const glm::vec3 hit = position + t_max_min * ray.direction;
 
 						point.data = &data;
 						point.position = hit;
@@ -246,7 +246,7 @@ private:
 				}
 			}
 
-			position += t_max_min * ray.direction;
+			position += (t_max_min + 0.01f) * ray.direction;
 			ray.t_total = t_total + t_max_min;
 			--level;
 		}
