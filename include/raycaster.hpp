@@ -47,18 +47,11 @@ struct RayCaster
 
 		sf::Color old_color = render_image.getPixel(pixel.x, pixel.y);
 
-		if (x < 1280 / 2) {
-			const float old_conservation = 0.8f;
-			mult(old_color, old_conservation);
-			mult(color, 1.0f - old_conservation);
-			add(old_color, color);
-			render_image.setPixel(pixel.x, pixel.y, old_color);
-		}
-		else {
-			const float c = context.complexity;
-			const sf::Color color(c, c, c);
-			render_image.setPixel(pixel.x, pixel.y, color);
-		}
+		const float old_conservation = 0.8f;
+		mult(old_color, old_conservation);
+		mult(color, 1.0f - old_conservation);
+		add(old_color, color);
+		render_image.setPixel(pixel.x, pixel.y, old_color);
 	}
 	
 

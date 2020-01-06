@@ -118,14 +118,14 @@ public:
 		}
 	}
 
-	static bool checkCell(const glm::vec3& cell_coords)
+	static bool checkCell(glm::ivec3 cell_coords)
 	{
-		return cell_coords.x >= 0 &&
-			   cell_coords.y >= 0 &&
-			   cell_coords.z >= 0 &&
-			   cell_coords.x < 2 &&
-			   cell_coords.y < 2 &&
-			   cell_coords.z < 2;
+		return cell_coords.x % 4 >= 0 &&
+			   cell_coords.y % 4 >= 0 &&
+			   cell_coords.z % 4 >= 0 &&
+			   cell_coords.x % 4 < 2 &&
+			   cell_coords.y % 4 < 2 &&
+			   cell_coords.z % 4 < 2;
 	}
 
 	bool checkCell(const glm::vec3& cell_coords, const uint32_t level) const
@@ -171,60 +171,67 @@ private:
 		}
 	}
 
+	void fillHitResult(Ray& ray, const MipmapCell& node, const float t) const
+	{
+		HitPoint& point = ray.point;
+		const Cell& data = *node.data;
+		const glm::vec3 hit = ray.start + t * ray.direction;
+
+		point.data = &data;
+		point.position = hit;
+		point.distance = t;
+
+		if (ray.hit_side == 0) {
+			point.normal = glm::vec3(-ray.step.x, 0.0f, 0.0f);
+			point.voxel_coord = glm::vec2(1.0f - frac(hit.z), frac(hit.y));
+		}
+		else if (ray.hit_side == 1) {
+			point.normal = glm::vec3(0.0f, -ray.step.y, 0.0f);
+			point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.z));
+		}
+		else if (ray.hit_side == 2) {
+			point.normal = glm::vec3(0.0f, 0.0f, -ray.step.z);
+			point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.y));
+		}
+	}
+
 	void stack_castRay(Ray& ray, const glm::vec3& start_position, const uint32_t max_iter, const uint32_t start_level) const
 	{
 		int32_t level = start_level;
 		glm::vec3 position = start_position;
 
-		while (level > -1 && ray.point.complexity < max_iter) {
-			const MipmapGrid& current_level = m_data[level];
-			const uint32_t cell_size = current_level.cell_size;
-			const uint32_t top_size = current_level.size  * 2U;
+		bool skip(false);
+		
+		const MipmapGrid& current_level = m_data[level];
+		const uint32_t cell_size = current_level.cell_size;
+		const uint32_t top_size = current_level.size * 2U;
+		glm::ivec3 cell_position = glm::floor(glm::vec3(position.x / cell_size, position.y / cell_size, position.z / cell_size));
 
-			const glm::ivec3 cell_position_i = glm::ivec3(position.x / cell_size, position.y / cell_size, position.z / cell_size);
-			glm::vec3 cell_position = cell_position_i;
-			const glm::vec3 cell_start_position(cell_position_i.x % top_size, cell_position_i.y % top_size, cell_position_i.z % top_size);
-			glm::vec3 t_max = ((cell_position + ray.dir) * float(cell_size) - position) / ray.direction;
+		while (level > -1 && ray.point.complexity < max_iter) {
+			
+			glm::vec3 t_max = ((glm::veccell_position + ray.dir) * float(cell_size) - position) / ray.direction;
 
 			const glm::vec3 t = float(cell_size) * ray.t;
 
 			float t_max_min = 0.0f;
 			const float t_total = ray.t_total;
 
-			while (checkCell(cell_position - cell_start_position) && checkCell(cell_position, level)) {
+			while (checkCell(cell_position)) {
 				// Increase pixel complexity
 				++ray.point.complexity;
 				// We enter the sub node
 				const MipmapCell& sub_node = current_level.get(cell_position);
 
-				if (!sub_node.empty) {
-					if (current_level.leaf_level) {
-						HitPoint& point = ray.point;
-						const Cell& data = *sub_node.data;
-						const glm::vec3 hit = start_position + (t_total + t_max_min) * ray.direction;
-
-						point.data = &data;
-						point.position = hit;
-
-						if (ray.hit_side == 0) {
-							point.normal = glm::vec3(-ray.step.x, 0.0f, 0.0f);
-							point.voxel_coord = glm::vec2(1.0f - frac(hit.z), frac(hit.y));
+				if (!skip) {
+					if (!sub_node.empty) {
+						if (current_level.leaf_level) {
+							fillHitResult(ray, sub_node, t_total + t_max_min);
+							return;
 						}
-						else if (ray.hit_side == 1) {
-							point.normal = glm::vec3(0.0f, -ray.step.y, 0.0f);
-							point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.z));
+						else {
+							level += 2;
+							break;
 						}
-						else if (ray.hit_side == 2) {
-							point.normal = glm::vec3(0.0f, 0.0f, -ray.step.z);
-							point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.y));
-						}
-
-						point.distance = t_total + t_max_min;
-						return;
-					}
-					else {
-						level += 2;
-						break;
 					}
 				}
 
@@ -238,6 +245,10 @@ private:
 			position += (t_max_min + 0.01f) * ray.direction;
 			ray.t_total = t_total + t_max_min;
 			--level;
+
+			if (skip) {
+				cell_position *= 0.5f;
+			}
 		}
 	}
 
