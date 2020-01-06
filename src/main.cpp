@@ -54,7 +54,7 @@ int32_t main()
 	Volume& grid = *grid_raw;
 
 	Camera camera;
-	camera.position = glm::vec3(100, 100, 100);
+	camera.position = glm::vec3(-40.6978, 326.232, 98.0843);
 	camera.view_angle = glm::vec2(0.0f);
 
 	FlyController controller;
@@ -65,7 +65,7 @@ int32_t main()
 	for (uint32_t x = 0; x < grid_size_x; x++) {
 		for (uint32_t z = 0; z < grid_size_z; z++) {
 			int32_t max_height = grid_size_y;
-			int32_t height = int32_t(64.0f * myNoise.GetNoise(float(0.5f * x), float(0.5f * z)) + 32);
+			int32_t height = int32_t(64.0f * myNoise.GetNoise(float(0.75f * x), float(0.75f * z)) + 32);
 
 			grid.setCell(Cell::Mirror, Cell::None, x, grid_size_y - 1, z);
 
@@ -113,8 +113,8 @@ int32_t main()
 			controller.updateCameraView(mouse_sensitivity * glm::vec2(mouse_pos.x - win_width  * 0.5f, (win_height  * 0.5f) - mouse_pos.y), camera);
 		}
 
-		//camera.view_angle.x = PI * 0.25f;
-		//camera.view_angle.y = -PI * 0.1f;
+		//camera.view_angle.x = 0.975;
+		//camera.view_angle.y = -0.41;
 
 		glm::vec3 camera_vec = glm::rotate(glm::vec3(0.0f, 0.0f, 1.0f), camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
 		camera_vec = glm::rotate(camera_vec, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -141,6 +141,9 @@ int32_t main()
 					break;
 				case sf::Keyboard::D:
 					right = true;
+					break;
+				case sf::Keyboard::O:
+					raycaster.use_ao = !raycaster.use_ao;
 					break;
 				case sf::Keyboard::Space:
 					up = true;
@@ -204,9 +207,10 @@ int32_t main()
 			move += glm::vec3(0.0f, -1.0f, 0.0f) * movement_speed;
 		}
 
-		controller.move(move, camera, grid);
+		controller.move(move, camera);
 		
-		const glm::vec3 light_position = glm::vec3(grid_size_x*0.5f, 0.0f, grid_size_z*0.5f) + glm::rotate(glm::vec3(0.0f, -500.0f, 1000.0f), 0.2f * time, glm::vec3(0.0f, 1.0f, 0.0f));
+		//const glm::vec3 light_position = glm::vec3(grid_size_x*0.5f, 0.0f, grid_size_z*0.5f) + glm::rotate(glm::vec3(0.0f, 0.0f, 1000.0f), 0.2f * time, glm::vec3(0.0f, 1.0f, 0.0f));
+		const glm::vec3 light_position = glm::vec3(0, 250, 700);
 		raycaster.setLightPosition(light_position);
 
 		checker_board_offset = 1 - checker_board_offset;
@@ -218,9 +222,12 @@ int32_t main()
 			const uint32_t area_height = RENDER_HEIGHT / area_count;
 			const uint32_t start_x = thread_id % 4;
 			const uint32_t start_y = thread_id / 4;
-
 			for (uint32_t x(start_x * area_width); x < (start_x + 1) * area_width; ++x) {
-				for (uint32_t y(start_y * area_height + (x+checker_board_offset)%2); y < (start_y + 1) * area_height; y += 2) {
+				for (uint32_t y(start_y * area_height + (x + checker_board_offset) % 2); y < (start_y + 1) * area_height; y += 2) {
+					
+						/*for (uint32_t i(4000); i--;) {
+							const uint32_t x = start_x * area_width + rand() % area_width;
+							const uint32_t y = start_y * area_height + rand() % area_height;*/
 					++ray_count;
 					const glm::vec3 screen_position(x, y, 0.0f);
 					glm::vec3 ray = glm::rotate(screen_position - camera_origin, camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
@@ -239,13 +246,16 @@ int32_t main()
 		mray_s_mean += instant_measure;
 		std::cout << "MRays/s " << instant_measure << " MEAN : " << mray_s_mean / value_count << std::endl;
 
-		window.clear(sf::Color::Black);
-		render_tex.draw(screen_pixels);
+		std::cout << camera.view_angle.x << " " << camera.view_angle.y << " " << camera.position.x << " " << camera.position.y << " " << camera.position.z << std::endl;
+
+		//window.clear(sf::Color::Black);
+		sf::Texture texture;
+		texture.loadFromImage(raycaster.render_image);
+		render_tex.draw(sf::Sprite(texture));
 		render_tex.display();
 		
 		sf::Sprite render_sprite(render_tex.getTexture());
 		render_sprite.setScale(1.0f / render_scale, 1.0f / render_scale);
-
 		window.draw(render_sprite);
 		window.display();
 

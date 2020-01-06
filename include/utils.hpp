@@ -12,6 +12,13 @@ void add(sf::Color& color, float f)
 	color.b = std::uint8_t(std::max(std::min(255.0f, color.b + f), 0.0f));
 }
 
+void add(sf::Color& color1, const sf::Color& color2)
+{
+	color1.r = std::uint8_t(std::max(std::min(255, color1.r + color2.r), 0));
+	color1.g = std::uint8_t(std::max(std::min(255, color1.g + color2.g), 0));
+	color1.b = std::uint8_t(std::max(std::min(255, color1.b + color2.b), 0));
+}
+
 
 void mult(sf::Color& color, float f)
 {
@@ -45,4 +52,21 @@ void clamp(float& value, float min, float max)
 	else if (value < min) {
 		value = min;
 	}
+}
+
+float getRand(float min, float max)
+{
+	const float rand_val = float(rand() % 100) / 100.0f;
+	return min + (max - min) * rand_val;
+}
+
+const uint32_t getMinComponentIndex(const glm::vec3& v)
+{
+	if (v.x < v.y) {
+		return v.x < v.z ? 0U : 2U;
+	}
+	else if (v.y < v.z) {
+		return 1U;
+	}
+	return 2U;
 }

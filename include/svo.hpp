@@ -92,7 +92,7 @@ struct Ray
 };
 
 
-class SVO : public Volumetric
+class SVO
 {
 public:
 	SVO()
@@ -102,11 +102,11 @@ public:
 		}
 	}
 
-	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction) const override
+	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, const uint32_t max_iter, const uint32_t start_level) const
 	{
 		Ray ray(position, direction);
 
-		stack_castRay(ray, position, 2U);
+		stack_castRay(ray, position, max_iter, start_level);
 
 		return ray.point;
 	}
@@ -139,6 +139,11 @@ public:
 			cell_coords.z < grid_size;
 	}
 
+	const uint32_t getMaxLevel() const
+	{
+		return m_level_count - 1U;
+	}
+
 private:
 	std::vector<MipmapGrid> m_data;
 	const uint32_t m_level_count = 9U;
@@ -166,13 +171,12 @@ private:
 		}
 	}
 
-	void stack_castRay(Ray& ray, const glm::vec3& position_, const int32_t start_level) const
+	void stack_castRay(Ray& ray, const glm::vec3& start_position, const uint32_t max_iter, const uint32_t start_level) const
 	{
 		int32_t level = start_level;
+		glm::vec3 position = start_position;
 
-		glm::vec3 position = position_;
-
-		while (level > -1 && ray.point.complexity < 128U) {
+		while (level > -1 && ray.point.complexity < max_iter) {
 			const MipmapGrid& current_level = m_data[level];
 			const uint32_t cell_size = current_level.cell_size;
 			const uint32_t top_size = current_level.size  * 2U;
@@ -197,7 +201,7 @@ private:
 					if (current_level.leaf_level) {
 						HitPoint& point = ray.point;
 						const Cell& data = *sub_node.data;
-						const glm::vec3 hit = position + t_max_min * ray.direction;
+						const glm::vec3 hit = start_position + (t_total + t_max_min) * ray.direction;
 
 						point.data = &data;
 						point.position = hit;
@@ -219,31 +223,16 @@ private:
 						return;
 					}
 					else {
-						level+=2;
+						level += 2;
 						break;
 					}
 				}
 
-				if (t_max.x < t_max.y) {
-					if (t_max.x < t_max.z) {
-						t_max_min = t_max.x;
-						t_max.x += t.x, cell_position.x += ray.step.x, ray.hit_side = 0;
-					}
-					else {
-						t_max_min = t_max.z;
-						t_max.z += t.z, cell_position.z += ray.step.z, ray.hit_side = 2;
-					}
-				}
-				else {
-					if (t_max.y < t_max.z) {
-						t_max_min = t_max.y;
-						t_max.y += t.y, cell_position.y += ray.step.y, ray.hit_side = 1;
-					}
-					else {
-						t_max_min = t_max.z;
-						t_max.z += t.z, cell_position.z += ray.step.z, ray.hit_side = 2;
-					}
-				}
+				const uint32_t min_comp = getMinComponentIndex(t_max);
+				t_max_min = t_max[min_comp];
+				t_max[min_comp] += t[min_comp];
+				cell_position[min_comp] += ray.step[min_comp];
+				ray.hit_side = min_comp;
 			}
 
 			position += (t_max_min + 0.01f) * ray.direction;
