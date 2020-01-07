@@ -146,7 +146,7 @@ public:
 
 private:
 	std::vector<MipmapGrid> m_data;
-	const uint32_t m_level_count = 9U;
+	const uint32_t m_level_count = 8U;
 
 	void setCellMipmap(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z, const uint32_t level)
 	{
@@ -171,26 +171,43 @@ private:
 		}
 	}
 
+	void fillHitResult(Ray& ray, const MipmapCell& node, const float t) const
+	{
+		HitPoint& point = ray.point;
+		const Cell& data = *node.data;
+		const glm::vec3 hit = ray.start + t * ray.direction;
+
+		point.data = &data;
+		point.position = hit;
+		point.distance = t;
+
+		if (ray.hit_side == 0) {
+			point.normal = glm::vec3(-ray.step.x, 0.0f, 0.0f);
+			point.voxel_coord = glm::vec2(1.0f - frac(hit.z), frac(hit.y));
+		}
+		else if (ray.hit_side == 1) {
+			point.normal = glm::vec3(0.0f, -ray.step.y, 0.0f);
+			point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.z));
+		}
+		else if (ray.hit_side == 2) {
+			point.normal = glm::vec3(0.0f, 0.0f, -ray.step.z);
+			point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.y));
+		}
+	}
+
 	void stack_castRay(Ray& ray, const glm::vec3& start_position, const uint32_t max_iter, const uint32_t start_level) const
 	{
 		int32_t level = start_level;
-		glm::vec3 position = start_position;
-
-		bool need_to_correct_cell = false;
-		uint32_t corrected_component = 0U;
-
-		const uint32_t initial_cell_size = m_data[start_level].cell_size;
-		glm::ivec3 cell_position_i = glm::ivec3(position.x / initial_cell_size, position.y / initial_cell_size, position.z / initial_cell_size);
+		glm::vec3 position = start_position;		
 
 		while (level > -1 && ray.point.complexity < max_iter) {
 			const MipmapGrid& current_level = m_data[level];
 			const uint32_t cell_size = current_level.cell_size;
 			const uint32_t top_size = current_level.size  * 2U;
 			
+			const glm::ivec3 cell_position_i = glm::ivec3(position.x / cell_size, position.y / cell_size, position.z / cell_size);
 			glm::vec3 cell_position = cell_position_i;
-			
-			glm::vec3 cell_start_position(cell_position_i.x % top_size, cell_position_i.y % top_size, cell_position_i.z % top_size);
-
+			glm::vec3 cell_start_position(cell_position_i.x, cell_position_i.y, cell_position_i.z);
 			glm::vec3 t_max = ((cell_position + ray.dir) * float(cell_size) - position) / ray.direction;
 
 			const glm::vec3 t = float(cell_size) * ray.t;
@@ -198,45 +215,22 @@ private:
 			float t_max_min = 0.0f;
 			const float t_total = ray.t_total;
 
-			while (checkCell(cell_position, level)) {
-				if (checkCell(cell_position - cell_start_position)) {
-					cell_position_i *= 2;
+			while (checkCell(cell_position, level) && ray.point.complexity < max_iter) {
+				// Increase pixel complexity
+				++ray.point.complexity;
+
+				if (!checkCell(cell_position - cell_start_position)) {
 					--level;
 					break;
 				}
 
-				// Increase pixel complexity
-				++ray.point.complexity;
 				// We enter the sub node
-				const MipmapCell& sub_node = current_level.get(cell_position);
-
+				const MipmapCell& sub_node = current_level.get(cell_position_i);
 				if (!sub_node.empty) {
 					if (current_level.leaf_level) {
-						HitPoint& point = ray.point;
-						const Cell& data = *sub_node.data;
-						const glm::vec3 hit = start_position + (t_total + t_max_min) * ray.direction;
-
-						point.data = &data;
-						point.position = hit;
-
-						if (ray.hit_side == 0) {
-							point.normal = glm::vec3(-ray.step.x, 0.0f, 0.0f);
-							point.voxel_coord = glm::vec2(1.0f - frac(hit.z), frac(hit.y));
-						}
-						else if (ray.hit_side == 1) {
-							point.normal = glm::vec3(0.0f, -ray.step.y, 0.0f);
-							point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.z));
-						}
-						else if (ray.hit_side == 2) {
-							point.normal = glm::vec3(0.0f, 0.0f, -ray.step.z);
-							point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.y));
-						}
-
-						point.distance = t_total + t_max_min;
-						return;
+						fillHitResult(ray, sub_node, t_total + t_max_min);
 					}
 					else {
-						cell_position_i /= 2;
 						++level;
 						break;
 					}
@@ -245,7 +239,7 @@ private:
 				const uint32_t min_comp = getMinComponentIndex(t_max);
 				t_max_min = t_max[min_comp];
 				t_max[min_comp] += t[min_comp];
-				cell_position[min_comp] += ray.step[min_comp];
+				cell_position += ray.step[min_comp];
 				ray.hit_side = min_comp;
 			}
 
