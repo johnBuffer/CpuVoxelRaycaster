@@ -63,12 +63,12 @@ public:
 		m_root = new Node();
 	}
 
-	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction) const override
+	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, const uint32_t max_iter) const override
 	{
 		Ray ray(position, direction);
 
 		const uint32_t max_cell_size = uint32_t(std::pow(2, m_max_level - 1));
-		rec_castRay(ray, position, max_cell_size, m_root);
+		rec_castRay(ray, position, max_cell_size, m_root, max_iter);
 
 		return ray.point;
 	}
@@ -118,7 +118,31 @@ private:
 		rec_setCell(type, texture, x - cell_x * sub_size, y - cell_y * sub_size, z - cell_z * sub_size, node->sub[cell_x][cell_y][cell_z], sub_size);
 	}
 
-	void rec_castRay(Ray& ray, const glm::vec3& position, uint32_t cell_size, const Node* node) const {
+	void fillHitResult(Ray& ray, const Node* node, const float t) const
+	{
+		HitPoint& point = ray.point;
+		const Cell& cell = node->cell;
+		const glm::vec3 hit = ray.start + t * ray.direction;
+
+		point.cell = &cell;
+		point.position = hit;
+		point.distance = t;
+
+		if (ray.hit_side == 0) {
+			point.normal = glm::vec3(-ray.step.x, 0.0f, 0.0f);
+			point.voxel_coord = glm::vec2(1.0f - frac(hit.z), frac(hit.y));
+		}
+		else if (ray.hit_side == 1) {
+			point.normal = glm::vec3(0.0f, -ray.step.y, 0.0f);
+			point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.z));
+		}
+		else if (ray.hit_side == 2) {
+			point.normal = glm::vec3(0.0f, 0.0f, -ray.step.z);
+			point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.y));
+		}
+	}
+
+	void rec_castRay(Ray& ray, const glm::vec3& position, uint32_t cell_size, const Node* node, const uint32_t max_iter) const {
 
 		glm::vec3 cell_pos_i = glm::ivec3(position.x / cell_size, position.y / cell_size, position.z / cell_size);
 		clamp(cell_pos_i.x, 0.0f, 1.0f);
@@ -130,41 +154,21 @@ private:
 
 		float t_max_min = 0.0f;
 		const float t_total = ray.t_total;
-		while (checkCell(cell_pos_i)) {
+		while (checkCell(cell_pos_i) && ray.point.complexity < max_iter) {
 			// Increase pixel complexity
 			++ray.point.complexity;
 			// We enter the sub node
 			const Node* sub_node = node->sub[uint32_t(cell_pos_i.x)][uint32_t(cell_pos_i.y)][uint32_t(cell_pos_i.z)];
 			if (sub_node) {
 				if (sub_node->leaf) {
-					HitPoint& point = ray.point;
-					const Cell& cell = sub_node->cell;
-					const glm::vec3 hit = ray.start + (t_total + t_max_min) * ray.direction;
-
-					point.cell = &cell;
-					point.position = hit;
-
-					if (ray.hit_side == 0) {
-						point.normal = glm::vec3(-ray.step.x, 0.0f, 0.0f);
-						point.voxel_coord = glm::vec2(1.0f - frac(hit.z), frac(hit.y));
-					}
-					else if (ray.hit_side == 1) {
-						point.normal = glm::vec3(0.0f, -ray.step.y, 0.0f);
-						point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.z));
-					}
-					else if (ray.hit_side == 2) {
-						point.normal = glm::vec3(0.0f, 0.0f, -ray.step.z);
-						point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.y));
-					}
-
-					point.distance = t_total + t_max_min;
+					fillHitResult(ray, sub_node, t_total + t_max_min);
 					return;
 				}
 				else {
 					const uint32_t sub_size = cell_size >> 1;
 					const glm::vec3 sub_position = (position + t_max_min * ray.direction) - cell_pos_i * float(cell_size);
 					ray.t_total = t_total + t_max_min;
-					rec_castRay(ray, sub_position, sub_size, sub_node);
+					rec_castRay(ray, sub_position, sub_size, sub_node, max_iter);
 					if (ray.point.cell) {
 						return;
 					}

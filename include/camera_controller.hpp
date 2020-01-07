@@ -23,5 +23,5 @@ struct CameraController
 		clamp(camera.view_angle.y, -PI * 0.5f, PI * 0.5f);
 	}
 
-	virtual void move(const glm::vec3& move_vector, Camera& camera, const Volumetric& volumetric) = 0;
+	virtual void move(const glm::vec3& move_vector, Camera& camera) = 0;
 };

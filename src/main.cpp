@@ -26,7 +26,7 @@ int32_t main()
 	//window.setFramerateLimit(30);
 
 	constexpr float render_scale = 1.0f;
-	constexpr uint32_t RENDER_WIDTH  = uint32_t(win_width  * render_scale);
+	constexpr uint32_t RENDER_WIDTH = uint32_t(win_width  * render_scale);
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
 	sf::RenderTexture denoised_tex;
@@ -38,104 +38,64 @@ int32_t main()
 
 	Blur blur(RENDER_WIDTH, RENDER_HEIGHT, 0.5f);
 
-	float movement_speed = 3.5f;
+	float movement_speed = 1.5f;
 
 	const float body_radius = 0.4f;
-	
-	const glm::vec3 camera_origin(float(RENDER_WIDTH) * 0.5f, float(RENDER_HEIGHT) * 0.5f, -0.85f * float(RENDER_WIDTH));
-	
-	constexpr int32_t size = 256;
+
+	const glm::vec3 camera_origin(0.0f, 0.0f, 0.0f);
+	//const glm::vec3 camera_origin(RENDER_WIDTH*0.5f , RENDER_HEIGHT*0.5f, -0.85f*RENDER_WIDTH);
+
+	constexpr int32_t size = 512;
 	constexpr int32_t grid_size_x = size;
 	constexpr int32_t grid_size_y = size / 2;
 	constexpr int32_t grid_size_z = size;
-	//using Volume = Grid3D<grid_size_x, grid_size_y, grid_size_z>;
 	using Volume = SVO;
+	//using Volume = Grid3D<grid_size_x, grid_size_y, grid_size_z>;
 	Volume* grid_raw = new Volume();
 	Volume& grid = *grid_raw;
 
 	Camera camera;
-	camera.position = glm::vec3(2, 2, 2);
+	camera.position = glm::vec3(100, 200, 98.0843);
 	camera.view_angle = glm::vec2(0.0f);
 
 	FlyController controller;
 
-	//grid.setCell(Cell::Grass, 2, 2, 2);
-
 	FastNoise myNoise; // Create a FastNoise object
 	myNoise.SetNoiseType(FastNoise::SimplexFractal); // Set the desired noise type
+
+	/*for (uint32_t x = 0; x < grid_size_x; x++) {
+		for (uint32_t z = 0; z < grid_size_z; z++) {
+			int32_t max_height = grid_size_y;
+			float amp_x = x - grid_size_x * 0.5f;
+			float amp_z = z - grid_size_z * 0.5f;
+			float ratio = std::pow(1.0f - sqrt(amp_x * amp_x + amp_z * amp_z) / (10.0f * grid_size_x), 256.0f);
+			int32_t height = int32_t(ratio * 128.0f * myNoise.GetNoise(float(2.5f * x), float(2.5f * z)));
+
+			grid.setCell(Cell::Mirror, Cell::None, x, grid_size_y - 1, z);
+
+			//if (x < grid_size_x/ 2)
+			for (int y(1); y < std::min(max_height, height); ++y) {
+				grid.setCell(Cell::Solid, Cell::Grass, x, grid_size_y - y - 1, z);
+			}
+		}
+	}*/
 
 	for (uint32_t x = 0; x < grid_size_x; x++) {
 		for (uint32_t z = 0; z < grid_size_z; z++) {
 			int32_t max_height = grid_size_y;
-			int32_t height = int32_t(64.0f * myNoise.GetNoise(float(0.5f * x), float(0.5f * z)) + 32);
+			float amp_x = x - grid_size_x * 0.5f;
+			float amp_z = z - grid_size_z * 0.5f;
+			float ratio = std::pow(1.0f - sqrt(amp_x * amp_x + amp_z * amp_z) / (10.0f * grid_size_x), 64.0f);
+			int32_t height = int32_t(ratio * 128.0f * myNoise.GetNoise(float(1.0f * x), float(1.0f * z)));
 
 			grid.setCell(Cell::Mirror, Cell::None, x, grid_size_y - 1, z);
 
+			//if (x < grid_size_x/ 2)
 			for (int y(1); y < std::min(max_height, height); ++y) {
 				grid.setCell(Cell::Solid, Cell::Grass, x, grid_size_y - y - 1, z);
 			}
 		}
 	}
-	/*
-	int sky_mirror_offset = 50;
-	for (int x = sky_mirror_offset; x < grid_size_x - sky_mirror_offset; x++) {
-		for (int z = sky_mirror_offset; z < grid_size_z - sky_mirror_offset; z++) {
-			if (x == sky_mirror_offset || x == grid_size_x-sky_mirror_offset -1 || z == sky_mirror_offset || z == grid_size_z-sky_mirror_offset-1) {
-				grid.setCell(Cell::Solid, x, 0, z);
-			}
-			else {
-				grid.setCell(Cell::Mirror, x, 0, z);
-			}
-		}
-	}
-
-	for (int x = 100; x < 150; x++) {
-		for (int y(10); y < 60; ++y) {
-			if (x == 100 || x == 149 || y == 10 || y == 59) {
-				grid.setCell(Cell::Solid, x, grid_size_y - y - 1, 50);
-			}
-			else {
-				grid.setCell(Cell::Mirror, x, grid_size_y - y - 1, 50);
-			}
-		}
-	}
-
-	for (int x = 100; x < 150; x++) {
-		for (int y(10); y < 60; ++y) {
-			if (x == 100 || x == 149 || y == 10 || y == 59) {
-				grid.setCell(Cell::Solid, x, grid_size_y - y - 1, 150);
-			}
-			else {
-				grid.setCell(Cell::Mirror, x, grid_size_y - y - 1, 150);
-			}
-		}
-	}
-
-	for (int z = 50; z < 150; z++) {
-		for (int y(10); y < 60; ++y) {
-			if (z == 50 || z == 149 || y == 10 || y == 59) {
-				grid.setCell(Cell::Solid, 24, grid_size_y - y - 1, z);
-			}
-			else {
-				grid.setCell(Cell::Mirror, 24, grid_size_y - y - 1, z);
-			}
-		}
-	}
-	*/
-	/*for (int z = 50; z < 150; z++) {
-		for (int y(10); y < 60; ++y) {
-			if (z == 50 || z == 149 || y == 10 || y == 59) {
-				grid.setCell(Cell::Solid, 256-24, grid_size_y - y - 1, z);
-			}
-			else {
-				grid.setCell(Cell::Mirror, 256 - 24, grid_size_y - y - 1, z);
-			}
-		}
-	}*/
-
-	/*for (int i(12000); i--;) {
-		grid.setCell(Cell::Solid, rand()% grid_size_x, rand() % grid_size_y, rand() % grid_size_z);
-	}*/
 
 	sf::VertexArray screen_pixels(sf::Points, RENDER_WIDTH * RENDER_HEIGHT);
 
@@ -149,13 +109,6 @@ int32_t main()
 
 	float time = 0.0f;
 
-	sf::Shader shader;
-	sf::Shader shader_threshold;
-	sf::Shader shader_denoise;
-	shader.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/median_3.frag", sf::Shader::Fragment);
-	//shader_threshold.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/threshold.frag", sf::Shader::Fragment);
-	//shader_threshold.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/denoiser.frag", sf::Shader::Fragment);
-
 	bool mouse_control = true;
 	bool use_denoise = false;
 	bool mode_demo = false;
@@ -168,21 +121,28 @@ int32_t main()
 
 	bool left(false), right(false), forward(false), backward(false), up(false);
 
-	std::ofstream stream;
-	stream.open("C:/Users/jeant/Desktop/recs/lol.txt");
+	float mray_s_mean = 0.0f;
+	float value_count = 0.0f;
 
-	std::list<ReplayElements> replay;
+	const float focal_increase = 1.0f;
+	float focal_length = 1.0f;
+	float aperture = 0.0f;
+	const float fov = 1.0f;
+
 
 	while (window.isOpen())
 	{
 		sf::Clock frame_clock;
 		const sf::Vector2i mouse_pos = sf::Mouse::getPosition(window);
 
-		if (mouse_control) {	
+		if (mouse_control) {
 			sf::Mouse::setPosition(sf::Vector2i(win_width / 2, win_height / 2), window);
 			const float mouse_sensitivity = 0.005f;
-			controller.updateCameraView(mouse_sensitivity * glm::vec2(mouse_pos.x - win_width  * 0.5f, (win_height  * 0.5f) - mouse_pos.y), camera);
+			controller.updateCameraView(mouse_sensitivity * glm::vec2(mouse_pos.x - win_width * 0.5f, (win_height  * 0.5f) - mouse_pos.y), camera);
 		}
+
+		//camera.view_angle.x = 0.975;
+		//camera.view_angle.y = -0.41;
 
 		glm::vec3 camera_vec = glm::rotate(glm::vec3(0.0f, 0.0f, 1.0f), camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
 		camera_vec = glm::rotate(camera_vec, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -210,6 +170,9 @@ int32_t main()
 				case sf::Keyboard::D:
 					right = true;
 					break;
+				case sf::Keyboard::O:
+					raycaster.use_ao = !raycaster.use_ao;
+					break;
 				case sf::Keyboard::Space:
 					up = true;
 					break;
@@ -224,8 +187,31 @@ int32_t main()
 					mode_demo = !mode_demo;
 					window.setMouseCursorVisible(!mode_demo && !mouse_control);
 					if (mode_demo) {
-						replay = ReplayElements::loadFromFile("C:/Users/jeant/Desktop/recs/lol3.txt");
 						time = 0.0f;
+					}
+					break;
+				case sf::Keyboard::Up:
+					focal_length += focal_increase;
+					break;
+				case sf::Keyboard::Down:
+					focal_length -= focal_increase;
+					if (focal_length < 1.0f) {
+						focal_length = 1.0f;
+					}
+					break;
+				case sf::Keyboard::Right:
+					aperture += 0.1f;
+					break;
+				case sf::Keyboard::Left:
+					aperture -= 0.1f;
+					if (aperture < 0.0f) {
+						aperture = 0.0f;
+					}
+					break;
+				case sf::Keyboard::R:
+					raycaster.use_samples = !raycaster.use_samples;
+					if (raycaster.use_samples) {
+						raycaster.resetSamples();
 					}
 					break;
 				default:
@@ -273,105 +259,117 @@ int32_t main()
 			move += glm::vec3(0.0f, -1.0f, 0.0f) * movement_speed;
 		}
 
-		if (!replay.empty()) {
-			std::cout << replay.front().timestamp << std::endl;
-			while (time > replay.front().timestamp) {
-				const auto& last = replay.front();
-				
-				camera.position.x = last.x;
-				camera.position.y = last.y;
-				camera.position.z = last.z;
+		controller.move(move, camera);
 
-				camera.view_angle.x = last.view_x;
-				camera.view_angle.y = last.view_y;
-
-				replay.pop_front();
-				if (replay.empty()) {
-					break;
-				}
-			}
-		}
-
-		controller.move(move, camera, grid);
-		
-		const glm::vec3 light_position = glm::vec3(grid_size_x*0.5f, 0.0f, grid_size_z*0.5f) + glm::rotate(glm::vec3(0.0f, -500.0f, 1000.0f), 0.2f * time, glm::vec3(0.0f, 1.0f, 0.0f));
+		//const glm::vec3 light_position = glm::vec3(grid_size_x*0.5f, 0.0f, grid_size_z*0.5f) + glm::rotate(glm::vec3(0.0f, 0.0f, 1000.0f), 0.2f * time, glm::vec3(0.0f, 1.0f, 0.0f));
+		const glm::vec3 light_position = glm::vec3(0, 0, 700);
 		raycaster.setLightPosition(light_position);
 
 		checker_board_offset = 1 - checker_board_offset;
 
-		/*if (mode_demo) {
-			camera.position.x = (0.5f * grid_size_x - 10.0f) * cos(0.1f * time) + 0.5f * grid_size_x;
-			camera.position.z = (0.5f * grid_size_z - 10.0f) * sin(0.1f * time) + 0.5f * grid_size_z;
-			camera.position.y = 90.0 + 80.0f*sin(0.1f * time);
+		sf::Clock render_clock;
+		uint32_t ray_count = 0U;
 
-			camera.view_angle.x = -0.1f * time - PI * 0.5f;
-			camera.view_angle.y = -PI*0.15f + PI*0.1f * sin(0.1f * time);
-		}*/
+
+		glm::vec3 distance_ray = glm::vec3(0.0f, 0.0f, 1.0f);
+		distance_ray = glm::rotate(distance_ray, camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
+		distance_ray = glm::rotate(distance_ray, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
+		HitPoint pt = grid.castRay(camera.position, glm::normalize(distance_ray), 1024U);
+		if (pt.cell) {
+			focal_length = glm::distance(camera.position, pt.position);
+		}
+		else {
+			focal_length = 100.0f;
+		}
+
+
+		const uint32_t area_width = RENDER_WIDTH / area_count;
+		const uint32_t area_height = RENDER_HEIGHT / area_count;
+
+		const uint32_t rays = raycaster.use_samples ? 16000 : 4000U;
 
 		auto group = swarm.execute([&](uint32_t thread_id, uint32_t max_thread) {
-			const uint32_t area_width = RENDER_WIDTH / area_count;
-			const uint32_t area_height = RENDER_HEIGHT / area_count;
 			const uint32_t start_x = thread_id % 4;
 			const uint32_t start_y = thread_id / 4;
-
 			for (uint32_t x(start_x * area_width); x < (start_x + 1) * area_width; ++x) {
-				for (uint32_t y(start_y * area_height + (x+checker_board_offset)%2); y < (start_y + 1) * area_height; y += 2) {
-					const glm::vec3 screen_position(x, y, 0.0f);
-					glm::vec3 ray = glm::rotate(screen_position - camera_origin, camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
+				for (uint32_t y(start_y * area_height + (x + checker_board_offset) % 2); y < (start_y + 1) * area_height; y += 2) {
+
+					/*for (uint32_t i(rays); i--;) {
+							const uint32_t x = start_x * area_width + rand() % area_width;
+							const uint32_t y = start_y * area_height + rand() % area_height;*/
+					++ray_count;
+
+					const float lens_x = float(x) / float(RENDER_HEIGHT) - float(RENDER_WIDTH) / float(RENDER_HEIGHT) * 0.5f;
+					const float lens_y = float(y) / float(RENDER_HEIGHT) - 0.5f;
+
+					const glm::vec3 screen_position = glm::vec3(lens_x, lens_y, fov);
+					const glm::vec3 ray_initial = screen_position - camera_origin;
+
+					const float d = fov;
+					const float fd = focal_length;
+					const glm::vec3 focal_point = camera_origin + glm::normalize(ray_initial) * fd;
+
+					const glm::vec3 rand_vec = aperture * glm::vec3(getRand(), getRand(), 0.0f);
+					const glm::vec3 new_camera_origin = camera_origin + rand_vec;
+					glm::vec3 ray = glm::normalize(focal_point - new_camera_origin);
+					ray = glm::rotate(ray, camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
 					ray = glm::rotate(ray, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
 
-					raycaster.renderRay(sf::Vector2i(x, y), camera.position, glm::normalize(ray), time);
+					glm::vec3 rand_vec_world = glm::rotate(rand_vec, camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
+					rand_vec_world = glm::rotate(rand_vec_world, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
+
+					raycaster.renderRay(sf::Vector2i(x, y), camera.position + rand_vec_world, ray, time);
 				}
 			}
 		});
 
 		group.waitExecutionDone();
 
-		window.clear(sf::Color::Black);
-		render_tex.draw(screen_pixels);
+		if (raycaster.use_samples) {
+			raycaster.samples_to_image();
+		}
+
+		const float render_time = render_clock.getElapsedTime().asSeconds();
+		value_count += 1.0f;
+		float instant_measure = (ray_count / render_time) / 1000000.0f;
+		mray_s_mean += instant_measure;
+		//std::cout << "MRays/s " << instant_measure << " MEAN : " << mray_s_mean / value_count << std::endl;
+
+		//std::cout << camera.view_angle.x << " " << camera.view_angle.y << " " << camera.position.x << " " << camera.position.y << " " << camera.position.z << std::endl;
+
+		//window.clear(sf::Color::Black);
+
+		const float old_value_conservation = 0.75f;
+		sf::RectangleShape cache1(sf::Vector2f(RENDER_WIDTH, RENDER_HEIGHT));
+		cache1.setFillColor(sf::Color(255 * old_value_conservation, 255 * old_value_conservation, 255 * old_value_conservation));
+
+		sf::RectangleShape cache2(sf::Vector2f(win_width, win_height));
+		const float c2 = 255 * (1.0f - old_value_conservation);
+		cache2.setFillColor(sf::Color(c2, c2, c2));
+
+		sf::Texture texture;
+		texture.loadFromImage(raycaster.render_image);
+		render_tex.draw(sf::Sprite(texture));
+		render_tex.draw(cache2, sf::BlendMultiply);
 		render_tex.display();
 
-		/*denoised_tex.draw(sf::Sprite(render_tex.getTexture()), &shader_denoise);
+		denoised_tex.draw(cache1, sf::BlendMultiply);
+		sf::Sprite render_sprite(render_tex.getTexture());
+		/*denoised_tex.display();
+		denoised_tex.draw(blur.apply(denoised_tex.getTexture(), 2));*/
+		denoised_tex.draw(render_sprite, sf::BlendAdd);
 		denoised_tex.display();
 
-		render_tex.draw(sf::Sprite(denoised_tex.getTexture()));
-		render_tex.display();*/
+		sf::Sprite final_sprite(denoised_tex.getTexture());
+		final_sprite.setScale(1.0f / render_scale, 1.0f / render_scale);
+		window.draw(final_sprite);
 
-		/*bloom_tex.draw(sf::Sprite(render_tex.getTexture()), &shader_threshold);
-		bloom_tex.display();
-
-		render_tex.draw(blur.apply(bloom_tex.getTexture(), 1), sf::BlendAdd);
-		render_tex.display();*/
-		
-		sf::Sprite render_sprite(render_tex.getTexture());
-		render_sprite.setScale(1.0f / render_scale, 1.0f / render_scale);
-
-		if (use_denoise && !mode_demo) {
-			window.draw(render_sprite, &shader);
-		}
-		else {
-			window.draw(render_sprite);
-		}
+		/*sf::CircleShape center(4.0f);
+		center.setOrigin(4.0f, 4.0f);
+		center.setPosition(win_width*0.5f, win_height*0.5f);
+		window.draw(center);*/
 		window.display();
 
-		if (mode_demo) {
-			screen_capture.update(window);
-			sf::Image image = screen_capture.copyToImage();
-
-			std::stringstream ssx;
-			ssx << "C:/Users/jeant/Desktop/voxels_dumps/img_" << frame_count++ << ".bmp";
-			image.saveToFile(ssx.str());
-		}
-
-		stream << time << " " << camera.position.x << " " << camera.position.y << " " << camera.position.z << " " << camera.view_angle.x << " " << camera.view_angle.y << std::endl;
-
-		if (!mode_demo) {
-			time += frame_clock.getElapsedTime().asSeconds();
-		}
-		else {
-			time += 0.016f;
-		}
+		time += frame_clock.getElapsedTime().asSeconds();
 	}
-
-	stream.close();
 }
