@@ -176,14 +176,21 @@ private:
 		int32_t level = start_level;
 		glm::vec3 position = start_position;
 
+		bool need_to_correct_cell = false;
+		uint32_t corrected_component = 0U;
+
+		const uint32_t initial_cell_size = m_data[start_level].cell_size;
+		glm::ivec3 cell_position_i = glm::ivec3(position.x / initial_cell_size, position.y / initial_cell_size, position.z / initial_cell_size);
+
 		while (level > -1 && ray.point.complexity < max_iter) {
 			const MipmapGrid& current_level = m_data[level];
 			const uint32_t cell_size = current_level.cell_size;
 			const uint32_t top_size = current_level.size  * 2U;
-
-			const glm::ivec3 cell_position_i = glm::ivec3(position.x / cell_size, position.y / cell_size, position.z / cell_size);
+			
 			glm::vec3 cell_position = cell_position_i;
-			const glm::vec3 cell_start_position(cell_position_i.x % top_size, cell_position_i.y % top_size, cell_position_i.z % top_size);
+			
+			glm::vec3 cell_start_position(cell_position_i.x % top_size, cell_position_i.y % top_size, cell_position_i.z % top_size);
+
 			glm::vec3 t_max = ((cell_position + ray.dir) * float(cell_size) - position) / ray.direction;
 
 			const glm::vec3 t = float(cell_size) * ray.t;
@@ -191,7 +198,13 @@ private:
 			float t_max_min = 0.0f;
 			const float t_total = ray.t_total;
 
-			while (checkCell(cell_position - cell_start_position) && checkCell(cell_position, level)) {
+			while (checkCell(cell_position, level)) {
+				if (checkCell(cell_position - cell_start_position)) {
+					cell_position_i *= 2;
+					--level;
+					break;
+				}
+
 				// Increase pixel complexity
 				++ray.point.complexity;
 				// We enter the sub node
@@ -223,7 +236,8 @@ private:
 						return;
 					}
 					else {
-						level += 2;
+						cell_position_i /= 2;
+						++level;
 						break;
 					}
 				}
@@ -235,9 +249,8 @@ private:
 				ray.hit_side = min_comp;
 			}
 
-			position += (t_max_min + 0.01f) * ray.direction;
+			position += t_max_min * ray.direction;
 			ray.t_total = t_total + t_max_min;
-			--level;
 		}
 	}
 

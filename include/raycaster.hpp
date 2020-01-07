@@ -139,7 +139,6 @@ struct RayCaster
 			}
 
 			mult(result, light_intensity / float(shadow_sample));
-			
 		}
 
 		//const uint32_t c = std::min(255U, std::max(0U, context.complexity / 10U));
@@ -151,7 +150,7 @@ struct RayCaster
 	float getAmbientOcclusion(const HitPoint& point)
 	{
 		const uint32_t ray_count = 4U;
-		const uint32_t max_iter = 32U;
+		const uint32_t max_iter = 16U;
 		const glm::vec3 ao_start = point.position + point.normal * eps;
 		float acc = 0.0f;
 		for (uint32_t i(ray_count); i--;) {
