@@ -54,7 +54,7 @@ void clamp(float& value, float min, float max)
 	}
 }
 
-float getRand(float min, float max)
+float getRand(float min = -0.5f, float max = 0.5f)
 {
 	const float rand_val = float(rand() % 100) / 100.0f;
 	return min + (max - min) * rand_val;

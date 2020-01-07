@@ -18,8 +18,8 @@
 
 int32_t main()
 {
-	constexpr uint32_t win_width = 1280;
-	constexpr uint32_t win_height = 720;
+	constexpr uint32_t win_width = 1920;
+	constexpr uint32_t win_height = 1080;
 
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
 	window.setMouseCursorVisible(false);
@@ -42,7 +42,8 @@ int32_t main()
 
 	const float body_radius = 0.4f;
 	
-	const glm::vec3 camera_origin(float(RENDER_WIDTH) * 0.5f, float(RENDER_HEIGHT) * 0.5f, -0.85f * float(RENDER_WIDTH));
+	const glm::vec3 camera_origin(0.0f , 0.0f , 0.0f);
+	//const glm::vec3 camera_origin(RENDER_WIDTH*0.5f , RENDER_HEIGHT*0.5f, -0.85f*RENDER_WIDTH);
 	
 	constexpr int32_t size = 512;
 	constexpr int32_t grid_size_x = size;
@@ -54,7 +55,7 @@ int32_t main()
 	Volume& grid = *grid_raw;
 
 	Camera camera;
-	camera.position = glm::vec3(-40.6978, 326.232, 98.0843);
+	camera.position = glm::vec3(100, 326.232, 98.0843);
 	camera.view_angle = glm::vec2(0.0f);
 
 	FlyController controller;
@@ -65,10 +66,14 @@ int32_t main()
 	for (uint32_t x = 0; x < grid_size_x; x++) {
 		for (uint32_t z = 0; z < grid_size_z; z++) {
 			int32_t max_height = grid_size_y;
-			int32_t height = int32_t(64.0f * myNoise.GetNoise(float(0.75f * x), float(0.75f * z)) + 32);
+			float amp_x = x - grid_size_x * 0.5f;
+			float amp_z = z - grid_size_z * 0.5f;
+			float ratio = 1.0f;// std::pow(1.0f - sqrt(amp_x * amp_x + amp_z * amp_z) / (10.0f * grid_size_x), 256.0f);
+			int32_t height = int32_t(ratio * 64.0f * myNoise.GetNoise(float(1.0f * x), float(1.0f * z)));
 
 			grid.setCell(Cell::Mirror, Cell::None, x, grid_size_y - 1, z);
 
+			if (x < grid_size_x/ 2)
 			for (int y(1); y < std::min(max_height, height); ++y) {
 				grid.setCell(Cell::Solid, Cell::Grass, x, grid_size_y - y - 1, z);
 			}
@@ -101,6 +106,12 @@ int32_t main()
 
 	float mray_s_mean = 0.0f;
 	float value_count = 0.0f;
+
+	const float focal_increase = 1.0f;
+	float focal_length = 1.0f;
+	float aperture = 0.0f;
+	const float fov = 1.0f;
+
 
 	while (window.isOpen())
 	{
@@ -162,6 +173,30 @@ int32_t main()
 						time = 0.0f;
 					}
 					break;
+				case sf::Keyboard::Up:
+					focal_length += focal_increase;
+					break;
+				case sf::Keyboard::Down:
+					focal_length -= focal_increase;
+					if (focal_length < 1.0f) {
+						focal_length = 1.0f;
+					}
+					break;
+				case sf::Keyboard::Right:
+					aperture += 0.1f;
+					break;
+				case sf::Keyboard::Left:
+					aperture -= 0.1f;
+					if (aperture < 0.0f) {
+						aperture = 0.0f;
+					}
+					break;
+				case sf::Keyboard::R:
+					raycaster.use_samples = !raycaster.use_samples;
+					if (raycaster.use_samples) {
+						raycaster.resetSamples();
+					}
+					break;
 				default:
 					break;
 				}
@@ -217,46 +252,105 @@ int32_t main()
 
 		sf::Clock render_clock;
 		uint32_t ray_count = 0U;
+
+
+		glm::vec3 distance_ray = glm::vec3(0.0f, 0.0f, 1.0f);
+		distance_ray = glm::rotate(distance_ray, camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
+		distance_ray = glm::rotate(distance_ray, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
+		HitPoint pt = grid.castRay(camera.position, glm::normalize(distance_ray), 128U, 0U);
+		if (pt.data) {
+			focal_length = glm::distance(camera.position, pt.position);
+		}
+		else {
+			focal_length = 100.0f;
+		}
+
+
+		const uint32_t area_width = RENDER_WIDTH / area_count;
+		const uint32_t area_height = RENDER_HEIGHT / area_count;
+
+		const uint32_t rays = raycaster.use_samples ? 16000 : 4000U;
+
 		auto group = swarm.execute([&](uint32_t thread_id, uint32_t max_thread) {
-			const uint32_t area_width = RENDER_WIDTH / area_count;
-			const uint32_t area_height = RENDER_HEIGHT / area_count;
 			const uint32_t start_x = thread_id % 4;
 			const uint32_t start_y = thread_id / 4;
-			for (uint32_t x(start_x * area_width); x < (start_x + 1) * area_width; ++x) {
-				for (uint32_t y(start_y * area_height + (x + checker_board_offset) % 2); y < (start_y + 1) * area_height; y += 2) {
-					
-						/*for (uint32_t i(4000); i--;) {
+			/*for (uint32_t x(start_x * area_width); x < (start_x + 1) * area_width; ++x) {
+				for (uint32_t y(start_y * area_height + (x + checker_board_offset) % 2); y < (start_y + 1) * area_height; y += 2) {*/
+
+					for (uint32_t i(rays); i--;) {
 							const uint32_t x = start_x * area_width + rand() % area_width;
-							const uint32_t y = start_y * area_height + rand() % area_height;*/
+							const uint32_t y = start_y * area_height + rand() % area_height;
 					++ray_count;
-					const glm::vec3 screen_position(x, y, 0.0f);
-					glm::vec3 ray = glm::rotate(screen_position - camera_origin, camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
+
+					const float lens_x = float(x) / float(RENDER_HEIGHT) - float(RENDER_WIDTH) / float(RENDER_HEIGHT) * 0.5f;
+					const float lens_y = float(y) / float(RENDER_HEIGHT) - 0.5f;
+
+					const glm::vec3 screen_position = glm::vec3(lens_x, lens_y, fov);
+					const glm::vec3 ray_initial = screen_position - camera_origin;
+					
+					const float d = fov;
+					const float fd = focal_length;
+					const glm::vec3 focal_point = camera_origin + glm::normalize(ray_initial) * fd;
+
+					const glm::vec3 rand_vec = aperture * glm::vec3(getRand(), getRand(), 0.0f);
+					const glm::vec3 new_camera_origin = camera_origin + rand_vec;
+					glm::vec3 ray = glm::normalize(focal_point - new_camera_origin);
+					ray = glm::rotate(ray, camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
 					ray = glm::rotate(ray, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
 
-					raycaster.renderRay(sf::Vector2i(x, y), camera.position, glm::normalize(ray), time);
+					glm::vec3 rand_vec_world = glm::rotate(rand_vec, camera.view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
+					rand_vec_world = glm::rotate(rand_vec_world, camera.view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
+					
+					raycaster.renderRay(sf::Vector2i(x, y), camera.position + rand_vec_world, ray, time);
 				}
-			}
+			
 		});
 
 		group.waitExecutionDone();
+
+		if (raycaster.use_samples) {
+			raycaster.samples_to_image();
+		}
 
 		const float render_time = render_clock.getElapsedTime().asSeconds();
 		value_count += 1.0f;
 		float instant_measure = (ray_count / render_time) / 1000000.0f;
 		mray_s_mean += instant_measure;
-		std::cout << "MRays/s " << instant_measure << " MEAN : " << mray_s_mean / value_count << std::endl;
+		//std::cout << "MRays/s " << instant_measure << " MEAN : " << mray_s_mean / value_count << std::endl;
 
-		std::cout << camera.view_angle.x << " " << camera.view_angle.y << " " << camera.position.x << " " << camera.position.y << " " << camera.position.z << std::endl;
+		//std::cout << camera.view_angle.x << " " << camera.view_angle.y << " " << camera.position.x << " " << camera.position.y << " " << camera.position.z << std::endl;
 
 		//window.clear(sf::Color::Black);
+		
+		const float old_value_conservation = 0.85f;
+		sf::RectangleShape cache1(sf::Vector2f(RENDER_WIDTH, RENDER_HEIGHT));
+		cache1.setFillColor(sf::Color(255 * old_value_conservation, 255 * old_value_conservation, 255 * old_value_conservation));
+
+		sf::RectangleShape cache2(sf::Vector2f(win_width, win_height));
+		const float c2 = 255 * (1.0f - old_value_conservation);
+		cache2.setFillColor(sf::Color(c2, c2, c2));
+
 		sf::Texture texture;
 		texture.loadFromImage(raycaster.render_image);
 		render_tex.draw(sf::Sprite(texture));
+		render_tex.draw(cache2, sf::BlendMultiply);
 		render_tex.display();
 		
+		denoised_tex.draw(cache1, sf::BlendMultiply);
 		sf::Sprite render_sprite(render_tex.getTexture());
-		render_sprite.setScale(1.0f / render_scale, 1.0f / render_scale);
-		window.draw(render_sprite);
+		/*denoised_tex.display();
+		denoised_tex.draw(blur.apply(denoised_tex.getTexture(), 2));*/
+		denoised_tex.draw(render_sprite, sf::BlendAdd);
+		denoised_tex.display();
+
+		sf::Sprite final_sprite(denoised_tex.getTexture());
+		final_sprite.setScale(1.0f / render_scale, 1.0f / render_scale);
+		window.draw(final_sprite);
+
+		/*sf::CircleShape center(4.0f);
+		center.setOrigin(4.0f, 4.0f);
+		center.setPosition(win_width*0.5f, win_height*0.5f);
+		window.draw(center);*/
 		window.display();
 
 		time += frame_clock.getElapsedTime().asSeconds();
