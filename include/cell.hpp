@@ -10,7 +10,9 @@ struct Cell
 
 	enum Texture {
 		None,
-		Grass
+		Grass,
+		Red,
+		White
 	};
 
 	Cell()

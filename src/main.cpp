@@ -25,7 +25,7 @@ int32_t main()
 	window.setMouseCursorVisible(false);
 	//window.setFramerateLimit(30);
 
-	constexpr float render_scale = 1.0f;
+	constexpr float render_scale = 0.5f;
 	constexpr uint32_t RENDER_WIDTH = uint32_t(win_width  * render_scale);
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
@@ -38,7 +38,7 @@ int32_t main()
 
 	Blur blur(RENDER_WIDTH, RENDER_HEIGHT, 0.5f);
 
-	float movement_speed = 1.5f;
+	float movement_speed = 2.5f;
 
 	const float body_radius = 0.4f;
 
@@ -63,7 +63,7 @@ int32_t main()
 	FastNoise myNoise; // Create a FastNoise object
 	myNoise.SetNoiseType(FastNoise::SimplexFractal); // Set the desired noise type
 
-	/*for (uint32_t x = 0; x < grid_size_x; x++) {
+	for (uint32_t x = 0; x < grid_size_x; x++) {
 		for (uint32_t z = 0; z < grid_size_z; z++) {
 			int32_t max_height = grid_size_y;
 			float amp_x = x - grid_size_x * 0.5f;
@@ -78,28 +78,10 @@ int32_t main()
 				grid.setCell(Cell::Solid, Cell::Grass, x, grid_size_y - y - 1, z);
 			}
 		}
-	}*/
-
-	for (uint32_t x = 0; x < grid_size_x; x++) {
-		for (uint32_t z = 0; z < grid_size_z; z++) {
-			int32_t max_height = grid_size_y;
-			float amp_x = x - grid_size_x * 0.5f;
-			float amp_z = z - grid_size_z * 0.5f;
-			float ratio = std::pow(1.0f - sqrt(amp_x * amp_x + amp_z * amp_z) / (10.0f * grid_size_x), 64.0f);
-			int32_t height = int32_t(ratio * 128.0f * myNoise.GetNoise(float(1.0f * x), float(1.0f * z)));
-
-			grid.setCell(Cell::Mirror, Cell::None, x, grid_size_y - 1, z);
-
-			//if (x < grid_size_x/ 2)
-			for (int y(1); y < std::min(max_height, height); ++y) {
-				grid.setCell(Cell::Solid, Cell::Grass, x, grid_size_y - y - 1, z);
-			}
-		}
 	}
 
-	sf::VertexArray screen_pixels(sf::Points, RENDER_WIDTH * RENDER_HEIGHT);
 
-	RayCaster raycaster(grid, screen_pixels, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
+	RayCaster raycaster(grid, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
 
 	const uint32_t thread_count = 16U;
 	const uint32_t area_count = uint32_t(sqrt(thread_count));
@@ -214,6 +196,12 @@ int32_t main()
 						raycaster.resetSamples();
 					}
 					break;
+				case sf::Keyboard::G:
+					raycaster.use_gi = !raycaster.use_gi;
+					break;
+				case sf::Keyboard::H:
+					raycaster.use_god_rays = !raycaster.use_god_rays;
+					break;
 				default:
 					break;
 				}
@@ -262,7 +250,8 @@ int32_t main()
 		controller.move(move, camera);
 
 		//const glm::vec3 light_position = glm::vec3(grid_size_x*0.5f, 0.0f, grid_size_z*0.5f) + glm::rotate(glm::vec3(0.0f, 0.0f, 1000.0f), 0.2f * time, glm::vec3(0.0f, 1.0f, 0.0f));
-		const glm::vec3 light_position = glm::vec3(0, 0, 700);
+		const glm::vec3 light_position = glm::vec3(256, 0, 1000);
+		//const glm::vec3 light_position = glm::vec3(grid_size_x / 2, 2000, grid_size_y / 2);
 		raycaster.setLightPosition(light_position);
 
 		checker_board_offset = 1 - checker_board_offset;
@@ -282,11 +271,10 @@ int32_t main()
 			focal_length = 100.0f;
 		}
 
-
 		const uint32_t area_width = RENDER_WIDTH / area_count;
 		const uint32_t area_height = RENDER_HEIGHT / area_count;
 
-		const uint32_t rays = raycaster.use_samples ? 16000 : 4000U;
+		const uint32_t rays = raycaster.use_samples ? 32000U : 8000U;
 
 		auto group = swarm.execute([&](uint32_t thread_id, uint32_t max_thread) {
 			const uint32_t start_x = thread_id % 4;
@@ -339,7 +327,7 @@ int32_t main()
 
 		//window.clear(sf::Color::Black);
 
-		const float old_value_conservation = 0.75f;
+		const float old_value_conservation = raycaster.use_samples ? 0.0f : 0.75f;
 		sf::RectangleShape cache1(sf::Vector2f(RENDER_WIDTH, RENDER_HEIGHT));
 		cache1.setFillColor(sf::Color(255 * old_value_conservation, 255 * old_value_conservation, 255 * old_value_conservation));
 
