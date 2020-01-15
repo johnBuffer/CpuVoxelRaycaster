@@ -92,8 +92,8 @@ struct RayCaster
 
 	void samples_to_image()
 	{
-		for (uint32_t x(0); x < render_size.x; ++x) {
-			for (uint32_t y(0); y < render_size.y; ++y) {
+		for (int32_t x(0); x < render_size.x; ++x) {
+			for (int32_t y(0); y < render_size.y; ++y) {
 				const Sample& s = colors[x][y];
 				const sf::Color color(s.r / s.update_count, s.g / s.update_count, s.b / s.update_count);
 				render_image.setPixel(x, y, color);
@@ -103,8 +103,8 @@ struct RayCaster
 
 	void resetSamples()
 	{
-		for (uint32_t x(0); x < render_size.x; ++x) {
-			for (uint32_t y(0); y < render_size.y; ++y) {
+		for (int32_t x(0); x < render_size.x; ++x) {
+			for (int32_t y(0); y < render_size.y; ++y) {
 				Sample& s = colors[x][y];
 				s.r = 0.0f;
 				s.g = 0.0f;
@@ -154,10 +154,11 @@ struct RayCaster
 					const glm::vec3 point_to_light = glm::normalize(light_point - intersection.position);
 					const HitPoint light_intersection = svo.castRay(hit_position, point_to_light, 128U);
 
-					light_intensity += std::max(0.0f, glm::dot(point_to_light, intersection.normal));
-
-					if (light_intersection.cell) {
-						light_intensity -= cell.type == Cell::Mirror ? 0.1f : 0.5f;
+					if (!light_intersection.cell) {
+						light_intensity += std::max(0.5f, glm::dot(point_to_light, intersection.normal));
+					}
+					else {
+						light_intensity += 0.2f;
 					}
 				}
 
@@ -271,7 +272,7 @@ struct RayCaster
 	const sf::Color getTextureColorFromHitPoint(const HitPoint& point)
 	{
 		if (point.cell->texture == Cell::Grass) {
-			return getColorFromNormal(point.normal);
+			return getColorFromVoxelCoord(getTextureFromNormal(point.normal), point.voxel_coord);
 		}
 		else if (point.cell->texture == Cell::Red) {
 			return sf::Color::Red;
