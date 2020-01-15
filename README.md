@@ -1,6 +1,6 @@
 # CpuVoxelRaycaster
 
-Real-time CPU voxels raytracing with SFML for backend.
+Real-time CPU voxels raytracing with [SFML](https://www.sfml-dev.org/) for backend.
 ### :point_right: Watch [videos](https://www.youtube.com/playlist?list=PLPiMlUuvmixACj5Ff0ky3G9pFF52pNJQS) of it running :point_left:
 
 ![image_1](https://github.com/johnBuffer/CpuVoxelRaycaster/blob/master/res/demo_1.bmp)
