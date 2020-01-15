@@ -7,4 +7,4 @@ Real-time CPU voxels raytracing with SFML for backend.
 
 # Demo
 
-[Video](https://www.youtube.com/watch?v=qn7QWuU2duo)
+[Videos](https://www.youtube.com/playlist?list=PLPiMlUuvmixACj5Ff0ky3G9pFF52pNJQS)
