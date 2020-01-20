@@ -33,11 +33,7 @@ struct Camera
 	{
 		const glm::vec3 screen_position = glm::vec3(lens_position, fov);
 		const glm::vec3 ray_initial = screen_position;
-
-		const float d = fov;
-		const float fd = focal_length;
-		const glm::vec3 focal_point = glm::normalize(ray_initial) * fd;
-
+		const glm::vec3 focal_point = glm::normalize(ray_initial) * focal_length;
 		const glm::vec3 rand_vec = aperture * glm::vec3(getRand(), getRand(), 0.0f);
 		const glm::vec3 new_camera_origin = rand_vec;
 		const glm::vec3 ray = glm::normalize(focal_point - new_camera_origin);

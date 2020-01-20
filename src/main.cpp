@@ -18,13 +18,13 @@
 
 int32_t main()
 {
-	constexpr uint32_t win_width = 1280;
-	constexpr uint32_t win_height = 720;
+	constexpr uint32_t win_width = 1600;
+	constexpr uint32_t win_height = 900;
 
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
 	window.setMouseCursorVisible(false);
 
-	constexpr float render_scale = 0.5f;
+	constexpr float render_scale = 1.0f;
 	constexpr uint32_t RENDER_WIDTH = uint32_t(win_width  * render_scale);
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
@@ -52,7 +52,7 @@ int32_t main()
 	Volume& volume = *volume_raw;
 
 	Camera camera;
-	camera.position = glm::vec3(100, 200, 98.0843);
+	camera.position = glm::vec3(256, 10, 256);
 	camera.view_angle = glm::vec2(0.0f);
 	camera.fov = 1.0f;
 
@@ -66,9 +66,10 @@ int32_t main()
 			float amp_x = x - grid_size_x * 0.5f;
 			float amp_z = z - grid_size_z * 0.5f;
 			float ratio = std::pow(1.0f - sqrt(amp_x * amp_x + amp_z * amp_z) / (10.0f * grid_size_x), 256.0f);
-			int32_t height = int32_t(64.0f * myNoise.GetNoise(float(1.5f * x), float(1.5f * z)));
+			int32_t height = int32_t(64.0f * myNoise.GetNoise(float(0.75f * x), float(0.75f * z)) + 32);
 
 			volume.setCell(Cell::Mirror, Cell::None, x, grid_size_y - 1, z);
+			//volume.setCell(Cell::Solid, Cell::Grass, x, 0, z);
 
 			for (int y(1); y < std::min(max_height, height); ++y) {
 				volume.setCell(Cell::Solid, Cell::Grass, x, grid_size_y - y - 1, z);
@@ -220,9 +221,9 @@ int32_t main()
 			move += glm::vec3(0.0f, -1.0f, 0.0f) * movement_speed;
 		}
 
-		controller.move(glm::normalize(move), camera);
+		controller.move(move, camera);
 
-		const glm::vec3 light_position = glm::vec3(256, 0, 1000);
+		const glm::vec3 light_position = glm::vec3(100, 100, 30);
 		raycaster.setLightPosition(light_position);
 
 		sf::Clock render_clock;

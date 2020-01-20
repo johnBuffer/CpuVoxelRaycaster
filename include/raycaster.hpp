@@ -125,6 +125,7 @@ struct RayCaster
 		context.distance = intersection.distance;
 
 		if (intersection.cell) {
+			//result.color = sf::Color::Red;
 			result.distance = intersection.distance;
 			const Cell& cell = *(intersection.cell);
 			const glm::vec3 hit_position = intersection.position + eps * intersection.normal;
@@ -155,10 +156,7 @@ struct RayCaster
 					const HitPoint light_intersection = svo.castRay(hit_position, point_to_light, 128U);
 
 					if (!light_intersection.cell) {
-						light_intensity += std::max(0.5f, glm::dot(point_to_light, intersection.normal));
-					}
-					else {
-						light_intensity += 0.2f;
+						light_intensity += std::max(0.0f, glm::dot(point_to_light, intersection.normal));
 					}
 				}
 
@@ -176,6 +174,9 @@ struct RayCaster
 			}
 		}
 
+		/*const int32_t c = context.complexity;
+		sf::Color color(c, c, c);
+		result.color = color;*/
 		return result;
 	}
 
@@ -239,7 +240,7 @@ struct RayCaster
 			noise_normal = glm::vec3(getRand(-1.0f, 1.0f), getRand(-1.0f, 1.0f), getRand(-1.0f, 1.0f));
 
 			const glm::vec3 gi_vec = glm::normalize(point.normal + noise_normal);
-			const float coef = 512.0f;
+			const float coef = 8.0f;
 			if (glm::dot(point.normal, gi_vec) > 0.0f) {
 				const ColorResult ray_result = castRay(gi_start, glm::normalize(point.normal + noise_normal), max_iter, context);
 
