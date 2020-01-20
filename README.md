@@ -16,6 +16,7 @@ Real-time CPU voxels raytracing with [SFML](https://www.sfml-dev.org/) for backe
 ![dof_3](https://github.com/johnBuffer/CpuVoxelRaycaster/blob/master/res/dof_1.png)
 
 ## Global illumination
+In these scenes, no ambient light or ambient occlusion have been used. Everything is illuminated by direct light and its bounces.
 ![gi_1](https://github.com/johnBuffer/CpuVoxelRaycaster/blob/master/res/gi_1.png)
 ![gi_2](https://github.com/johnBuffer/CpuVoxelRaycaster/blob/master/res/gi_2.png)
 
