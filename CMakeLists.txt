@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-set(PROJECT_NAME RandomForest)
+set(PROJECT_NAME CpuVoxel)
 project(${PROJECT_NAME} VERSION 1.0.0 LANGUAGES CXX)
 
 set(SFML_DIR "" CACHE PATH "SFML lib path")

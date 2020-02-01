@@ -49,8 +49,8 @@ struct RayCaster
 		, render_size(render_size_)
 	{
 		render_image.create(render_size.x, render_size.y);
-		image_side.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/grass_side_16x16.bmp");
-		image_top.loadFromFile("C:/Users/jeant/Documents/Code/cpp/CpuVoxelRaycaster/res/grass_top_16x16.bmp");
+		image_side.loadFromFile("../res/grass_side_16x16.bmp");
+		image_top.loadFromFile("../res/grass_top_16x16.bmp");
 
 		colors.resize(render_size_.x);
 		for (auto& v : colors) {
@@ -160,7 +160,7 @@ struct RayCaster
 					}
 				}
 
-				mult(result.color, std::max(0.0f, (light_intensity) / float(shadow_sample)));
+				mult(result.color, std::max(0.5f, (light_intensity) / float(shadow_sample)));
 			}
 
 			if (use_gi && context.gi_bounce) {

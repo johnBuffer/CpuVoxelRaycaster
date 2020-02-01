@@ -11,7 +11,6 @@
 #include "swarm.hpp"
 #include "FastNoise.h"
 #include "raycaster.hpp"
-#include "dynamic_blur.hpp"
 #include "fly_controller.hpp"
 #include "replay.hpp"
 
@@ -24,7 +23,7 @@ int32_t main()
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
 	window.setMouseCursorVisible(false);
 
-	constexpr float render_scale = 1.0f;
+	constexpr float render_scale = 0.4f;
 	constexpr uint32_t RENDER_WIDTH = uint32_t(win_width  * render_scale);
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
@@ -34,8 +33,6 @@ int32_t main()
 	denoised_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
 	bloom_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
 	render_tex.setSmooth(false);
-
-	Blur blur(RENDER_WIDTH, RENDER_HEIGHT, 0.5f);
 
 	float movement_speed = 2.5f;
 
@@ -52,7 +49,7 @@ int32_t main()
 	Volume& volume = *volume_raw;
 
 	Camera camera;
-	camera.position = glm::vec3(256, 10, 256);
+	camera.position = glm::vec3(256, 200, 256);
 	camera.view_angle = glm::vec2(0.0f);
 	camera.fov = 1.0f;
 
@@ -77,7 +74,6 @@ int32_t main()
 		}
 	}
 
-
 	RayCaster raycaster(volume, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
 
 	const uint32_t thread_count = 16U;
@@ -94,6 +90,7 @@ int32_t main()
 
 	int32_t checker_board_offset = 0;
 	uint32_t frame_count = 0U;
+	float frame_time = 0.0f;
 
 	bool left(false), right(false), forward(false), backward(false), up(false);
 
@@ -102,11 +99,14 @@ int32_t main()
 		sf::Clock frame_clock;
 		const sf::Vector2i mouse_pos = sf::Mouse::getPosition(window);
 
-		if (mouse_control) {
+		/*if (mouse_control) {
 			sf::Mouse::setPosition(sf::Vector2i(win_width / 2, win_height / 2), window);
 			const float mouse_sensitivity = 0.005f;
 			controller.updateCameraView(mouse_sensitivity * glm::vec2(mouse_pos.x - win_width * 0.5f, (win_height  * 0.5f) - mouse_pos.y), camera);
-		}
+		}*/
+
+		camera.view_angle.x = 3.7f;
+		camera.view_angle.y = -0.2f;
 
 		glm::vec3 move = glm::vec3(0.0f);
 		sf::Event event;
@@ -223,11 +223,10 @@ int32_t main()
 
 		controller.move(move, camera);
 
-		const glm::vec3 light_position = glm::vec3(100, 100, 30);
+		const glm::vec3 light_position = glm::vec3(100, -1000, 30);
 		raycaster.setLightPosition(light_position);
 
 		sf::Clock render_clock;
-		uint32_t ray_count = 0U;
 
 		// Computing camera's focal length based on aimed point
 		HitPoint closest_point = camera.getClosestPoint(volume);
@@ -252,13 +251,11 @@ int32_t main()
 			const uint32_t start_y = thread_id / 4;
 			for (uint32_t x(start_x * area_width); x < (start_x + 1) * area_width; ++x) {
 				for (uint32_t y(start_y * area_height + (x + checker_board_offset) % 2); y < (start_y + 1) * area_height; y += 2) {
-					++ray_count;
 					// Computing ray coordinates in 'lens' space ie in normalized screen space
 					const float lens_x = float(x) / float(RENDER_HEIGHT) - aspect_ratio * 0.5f;
 					const float lens_y = float(y) / float(RENDER_HEIGHT) - 0.5f;
 					// Get ray to cast with stochastic blur baked into it
 					const CameraRay camera_ray = camera.getRay(glm::vec2(lens_x, lens_y));
-
 					raycaster.renderRay(sf::Vector2i(x, y), camera.position + camera_ray.world_rand_offset, camera_ray.ray, time);
 				}
 			}
@@ -295,6 +292,10 @@ int32_t main()
 		window.draw(final_sprite);
 		window.display();
 
-		time += frame_clock.getElapsedTime().asSeconds();
+		const float dt = frame_clock.getElapsedTime().asSeconds();
+		++frame_count;
+		time += dt;
+
+		std::cout << "AVG frame time " << time / double(frame_count) << std::endl;
 	}
 }
