@@ -13,6 +13,7 @@
 #include "raycaster.hpp"
 #include "fly_controller.hpp"
 #include "replay.hpp"
+#include "event_manager.hpp"
 
 
 int32_t main()
@@ -55,6 +56,8 @@ int32_t main()
 
 	FlyController controller;
 
+	EventManager event_manager(window);
+
 	FastNoise myNoise;
 	myNoise.SetNoiseType(FastNoise::SimplexFractal);
 	for (uint32_t x = 0; x < grid_size_x; x++) {
@@ -94,6 +97,9 @@ int32_t main()
 
 	bool left(false), right(false), forward(false), backward(false), up(false);
 
+	std::cout << sizeof(Node) << std::endl;
+	return 0;
+
 	while (window.isOpen())
 	{
 		sf::Clock frame_clock;
@@ -107,120 +113,7 @@ int32_t main()
 
 		camera.setViewAngle(glm::vec2(3.7f, -0.2f));
 
-		glm::vec3 move = glm::vec3(0.0f);
-		sf::Event event;
-		while (window.pollEvent(event)) {
-			if (event.type == sf::Event::Closed)
-				window.close();
-
-			if (event.type == sf::Event::KeyPressed) {
-				switch (event.key.code) {
-				case sf::Keyboard::Escape:
-					window.close();
-					break;
-				case sf::Keyboard::Z:
-					forward = true;
-					break;
-				case sf::Keyboard::S:
-					backward = true;
-					break;
-				case sf::Keyboard::Q:
-					left = true;
-					break;
-				case sf::Keyboard::D:
-					right = true;
-					break;
-				case sf::Keyboard::O:
-					raycaster.use_ao = !raycaster.use_ao;
-					break;
-				case sf::Keyboard::Space:
-					up = true;
-					break;
-				case sf::Keyboard::A:
-					use_denoise = !use_denoise;
-					break;
-				case sf::Keyboard::E:
-					mouse_control = !mouse_control;
-					window.setMouseCursorVisible(!mouse_control);
-					break;
-				case sf::Keyboard::F:
-					mode_demo = !mode_demo;
-					window.setMouseCursorVisible(!mode_demo && !mouse_control);
-					if (mode_demo) {
-						time = 0.0f;
-					}
-					break;
-				case sf::Keyboard::Up:
-					break;
-				case sf::Keyboard::Down:
-					break;
-				case sf::Keyboard::Right:
-					camera.aperture += 0.1f;
-					break;
-				case sf::Keyboard::Left:
-					camera.aperture -= 0.1f;
-					if (camera.aperture < 0.0f) {
-						camera.aperture = 0.0f;
-					}
-					break;
-				case sf::Keyboard::R:
-					raycaster.use_samples = !raycaster.use_samples;
-					if (raycaster.use_samples) {
-						raycaster.resetSamples();
-					}
-					break;
-				case sf::Keyboard::G:
-					raycaster.use_gi = !raycaster.use_gi;
-					break;
-				case sf::Keyboard::H:
-					raycaster.use_god_rays = !raycaster.use_god_rays;
-					break;
-				default:
-					break;
-				}
-			}
-			else if (event.type == sf::Event::KeyReleased) {
-				switch (event.key.code) {
-				case sf::Keyboard::Z:
-					forward = false;
-					break;
-				case sf::Keyboard::S:
-					backward = false;
-					break;
-				case sf::Keyboard::Q:
-					left = false;
-					break;
-				case sf::Keyboard::D:
-					right = false;
-					break;
-				case sf::Keyboard::Space:
-					up = false;
-					break;
-				default:
-					break;
-				}
-			}
-		}
-
-		if (forward) {
-			move += camera.camera_vec * movement_speed;
-		}
-		else if (backward) {
-			move -= camera.camera_vec * movement_speed;
-		}
-
-		if (left) {
-			move += glm::vec3(-camera.camera_vec.z, 0.0f, camera.camera_vec.x) * movement_speed;
-		}
-		else if (right) {
-			move -= glm::vec3(-camera.camera_vec.z, 0.0f, camera.camera_vec.x) * movement_speed;
-		}
-
-		if (up) {
-			move += glm::vec3(0.0f, -1.0f, 0.0f) * movement_speed;
-		}
-
-		controller.move(move, camera);
+		event_manager.processEvents(controller, camera, raycaster);
 
 		const glm::vec3 light_position = glm::vec3(100, -1000, 30);
 		raycaster.setLightPosition(light_position);
@@ -259,7 +152,6 @@ int32_t main()
 				}
 			}
 		});
-
 		// Wait for threads to terminate
 		group.waitExecutionDone();
 
