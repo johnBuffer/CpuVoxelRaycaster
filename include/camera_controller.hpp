@@ -18,6 +18,7 @@ struct Camera
 	glm::vec3 position;
 	glm::vec2 view_angle;
 	glm::vec3 camera_vec;
+	glm::mat3 rot_mat;
 
 	float aperture = 0.0f;
 	float focal_length = 1.0f;
@@ -26,6 +27,7 @@ struct Camera
 	void setViewAngle(const glm::vec2& angle)
 	{
 		view_angle = angle;
+		rot_mat = generateRotationMatrix(view_angle);
 		camera_vec = viewToWorld(glm::vec3(0.0f, 0.0f, 1.0f));
 	}
 
@@ -48,8 +50,10 @@ struct Camera
 
 	glm::vec3 viewToWorld(const glm::vec3& v) const
 	{
-		glm::vec3 result = glm::rotate(v, view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
-		return glm::rotate(result, view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
+		/*glm::vec3 result = glm::rotate(v, view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
+		return glm::rotate(result, view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));*/
+
+		return v * rot_mat;
 	}
 
 	HitPoint getClosestPoint(const Volumetric& volume) const

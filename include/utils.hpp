@@ -3,6 +3,9 @@
 #include "volumetric.hpp"
 #include <cmath>
 #include <SFML/Graphics.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 
 
 void add(sf::Color& color, float f)
@@ -69,4 +72,12 @@ const uint32_t getMinComponentIndex(const glm::vec3& v)
 		return 1U;
 	}
 	return 2U;
+}
+
+glm::mat3 generateRotationMatrix(const glm::vec2& angle)
+{
+	const glm::mat4 rx = glm::rotate(glm::mat4(1.0f), -angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
+	const glm::mat4 ry = glm::rotate(glm::mat4(1.0f), -angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
+
+	return ry * rx;
 }

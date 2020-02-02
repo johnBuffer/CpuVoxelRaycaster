@@ -105,8 +105,7 @@ int32_t main()
 			controller.updateCameraView(mouse_sensitivity * glm::vec2(mouse_pos.x - win_width * 0.5f, (win_height  * 0.5f) - mouse_pos.y), camera);
 		}*/
 
-		camera.view_angle.x = 3.7f;
-		camera.view_angle.y = -0.2f;
+		camera.setViewAngle(glm::vec2(3.7f, -0.2f));
 
 		glm::vec3 move = glm::vec3(0.0f);
 		sf::Event event;
