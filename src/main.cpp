@@ -14,6 +14,7 @@
 #include "fly_controller.hpp"
 #include "replay.hpp"
 #include "event_manager.hpp"
+#include "lsvo.hpp"
 
 
 int32_t main()
@@ -76,6 +77,9 @@ int32_t main()
 			}
 		}
 	}
+
+	auto lsvo = compileSVO(volume);
+	std::cout << lsvo.size() << std::endl;
 
 	RayCaster raycaster(volume, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
 
