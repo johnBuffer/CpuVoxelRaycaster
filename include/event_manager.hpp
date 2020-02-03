@@ -9,6 +9,12 @@ struct EventManager
 {
 	EventManager(sf::RenderWindow& window_)
 		: window(window_)
+		, forward(false)
+		, left(false)
+		, right(false)
+		, up(false)
+		, backward(false)
+		, mouse_control(true)
 	{
 
 	}

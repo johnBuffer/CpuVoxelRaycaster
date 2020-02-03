@@ -25,7 +25,7 @@ int32_t main()
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
 	window.setMouseCursorVisible(false);
 
-	constexpr float render_scale = 0.4f;
+	constexpr float render_scale = 0.5f;
 	constexpr uint32_t RENDER_WIDTH = uint32_t(win_width  * render_scale);
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
@@ -42,16 +42,15 @@ int32_t main()
 
 	const glm::vec3 camera_origin(0.0f, 0.0f, 0.0f);
 
-	constexpr int32_t size = 512;
+	constexpr int32_t size = 16;
 	constexpr int32_t grid_size_x = size;
-	constexpr int32_t grid_size_y = size / 2;
+	constexpr int32_t grid_size_y = size;
 	constexpr int32_t grid_size_z = size;
 	using Volume = SVO;
 	Volume* volume_raw = new Volume();
-	Volume& volume = *volume_raw;
 
 	Camera camera;
-	camera.position = glm::vec3(256, 200, 256);
+	camera.position = glm::vec3(10, 10, 10);
 	camera.view_angle = glm::vec2(0.0f);
 	camera.fov = 1.0f;
 
@@ -59,7 +58,7 @@ int32_t main()
 
 	EventManager event_manager(window);
 
-	FastNoise myNoise;
+	/*FastNoise myNoise;
 	myNoise.SetNoiseType(FastNoise::SimplexFractal);
 	for (uint32_t x = 0; x < grid_size_x; x++) {
 		for (uint32_t z = 0; z < grid_size_z; z++) {
@@ -69,21 +68,25 @@ int32_t main()
 			float ratio = std::pow(1.0f - sqrt(amp_x * amp_x + amp_z * amp_z) / (10.0f * grid_size_x), 256.0f);
 			int32_t height = int32_t(64.0f * myNoise.GetNoise(float(0.75f * x), float(0.75f * z)) + 32);
 
-			volume.setCell(Cell::Mirror, Cell::None, x, grid_size_y - 1, z);
+			volume_raw->setCell(Cell::Mirror, Cell::None, x, grid_size_y - 1, z);
 			//volume.setCell(Cell::Solid, Cell::Grass, x, 0, z);
 
 			for (int y(1); y < std::min(max_height, height); ++y) {
-				volume.setCell(Cell::Solid, Cell::Grass, x, grid_size_y - y - 1, z);
+				volume_raw->setCell(Cell::Solid, Cell::Grass, x, grid_size_y - y - 1, z);
 			}
 		}
-	}
+	}*/
 
-	auto lsvo = compileSVO(volume);
-	std::cout << lsvo.size() << std::endl;
+	volume_raw->setCell(Cell::Solid, Cell::Grass, 12, 12, 12);
 
-	RayCaster raycaster(volume, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
+	LSVO lsvo;
+	lsvo.importFromSVO(*volume_raw);
 
-	const uint32_t thread_count = 16U;
+	delete volume_raw;
+
+	RayCaster raycaster(lsvo, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
+
+	const uint32_t thread_count = 1U;
 	const uint32_t area_count = uint32_t(sqrt(thread_count));
 	swrm::Swarm swarm(thread_count);
 
@@ -91,7 +94,6 @@ int32_t main()
 
 	float time = 0.0f;
 
-	bool mouse_control = true;
 	bool use_denoise = false;
 	bool mode_demo = false;
 
@@ -99,9 +101,6 @@ int32_t main()
 	uint32_t frame_count = 0U;
 	float frame_time = 0.0f;
 
-	bool left(false), right(false), forward(false), backward(false), up(false);
-
-	std::cout << sizeof(Node) << std::endl;
 	return 0;
 
 	while (window.isOpen())
@@ -109,13 +108,13 @@ int32_t main()
 		sf::Clock frame_clock;
 		const sf::Vector2i mouse_pos = sf::Mouse::getPosition(window);
 
-		/*if (mouse_control) {
+		if (event_manager.mouse_control) {
 			sf::Mouse::setPosition(sf::Vector2i(win_width / 2, win_height / 2), window);
 			const float mouse_sensitivity = 0.005f;
 			controller.updateCameraView(mouse_sensitivity * glm::vec2(mouse_pos.x - win_width * 0.5f, (win_height  * 0.5f) - mouse_pos.y), camera);
-		}*/
+		}
 
-		camera.setViewAngle(glm::vec2(3.7f, -0.2f));
+		//camera.setViewAngle(glm::vec2(3.7f, -0.2f));
 
 		event_manager.processEvents(controller, camera, raycaster);
 
@@ -125,7 +124,7 @@ int32_t main()
 		sf::Clock render_clock;
 
 		// Computing camera's focal length based on aimed point
-		HitPoint closest_point = camera.getClosestPoint(volume);
+		HitPoint closest_point = camera.getClosestPoint(lsvo);
 		if (closest_point.cell) {
 			camera.focal_length = closest_point.distance;
 		}
@@ -191,6 +190,6 @@ int32_t main()
 		++frame_count;
 		time += dt;
 
-		std::cout << "AVG frame time " << time / double(frame_count) << std::endl;
+		//std::cout << "AVG frame time " << time / double(frame_count) << std::endl;
 	}
 }
