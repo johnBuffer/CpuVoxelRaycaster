@@ -77,11 +77,14 @@ int32_t main()
 		}
 	}
 
-	LSVO lsvo;
-	lsvo.importFromSVO(*volume_raw);
+	LSVO lsvo(*volume_raw);
 	//lsvo.print();
 
+	std::cout << sizeof(OctreeStack) << std::endl;
+
 	delete volume_raw;
+
+	return 0;
 
 	RayCaster raycaster(lsvo, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
 
