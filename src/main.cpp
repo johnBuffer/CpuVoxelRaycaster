@@ -86,7 +86,7 @@ int32_t main()
 
 	auto v = vec3bool(true, false, true);
 
-	std::cout << v.x() << v.y() << v.z() << std::endl;
+	std::cout << glm::sign(glm::vec3(1, -1, 3)).y << std::endl;
 
 	return 0;
 

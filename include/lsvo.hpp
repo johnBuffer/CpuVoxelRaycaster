@@ -23,10 +23,14 @@ struct LSVO : public Volumetric
 
 	void setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z) {}
 
-	vec3bool getChildPos(const LRay& ray, const glm::vec3& t_center)
+	glm::vec3 getT(const LRay& ray) const
 	{
+		return -ray.sign * ray.inv_direction;
+	}
 
-		return vec3bool();
+	vec3bool getChildPos(float t_min, const glm::vec3& t_center) const
+	{
+		return vec3bool(t_min > t_center.x, t_min > t_center.y, t_min > t_center.z);
 	}
 
 	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, const uint32_t max_iter) const
@@ -44,6 +48,10 @@ struct LSVO : public Volumetric
 		glm::vec2 t_span;
 		t_span.x = (std::max(t0.x, std::min(t0.y, t0.z)));
 		t_span.y = (std::min(t1.x, std::min(t1.y, t1.z)));
+		// Initialize t_center
+		const glm::vec3 t_center = getT(ray);
+		// Initialize child position
+		vec3bool child_pos = getChildPos(t_span.x, float(size) * t_center);
 		// Iterating through the Octree
 		while (scale < max_level) {
 			
