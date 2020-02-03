@@ -84,6 +84,10 @@ int32_t main()
 
 	delete volume_raw;
 
+	auto v = vec3bool(true, false, true);
+
+	std::cout << v.x() << v.y() << v.z() << std::endl;
+
 	return 0;
 
 	RayCaster raycaster(lsvo, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));

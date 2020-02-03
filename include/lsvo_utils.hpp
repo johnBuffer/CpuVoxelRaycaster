@@ -19,9 +19,13 @@ struct LNode
 struct vec3bool
 {
 	vec3bool() : data(0U) {}
-	bool x() const { return data & 0x1; }
-	bool y() const { return data & 0x10; }
-	bool z() const { return data & 0x100; }
+	vec3bool(uint8_t x_, uint8_t y_, uint8_t z_)
+		: data(x_ | (y_ << 1U) | (z_ << 2U))
+	{}
+
+	bool x() const { return data & 0b001; }
+	bool y() const { return data & 0b010; }
+	bool z() const { return data & 0b100; }
 	uint8_t data;
 };
 

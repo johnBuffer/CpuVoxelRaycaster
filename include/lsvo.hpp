@@ -23,6 +23,12 @@ struct LSVO : public Volumetric
 
 	void setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z) {}
 
+	vec3bool getChildPos(const LRay& ray, const glm::vec3& t_center)
+	{
+
+		return vec3bool();
+	}
+
 	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, const uint32_t max_iter) const
 	{
 		LRay ray(position, direction);
