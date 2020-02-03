@@ -174,13 +174,9 @@ struct RayCaster
 			}
 		}
 
-		if (intersection.cell) {
-			return result;
-		}
-
-		const int32_t c = context.complexity;
+		/*const int32_t c = context.complexity;
 		sf::Color color(c, c, c);
-		result.color = color;
+		result.color = color;*/
 		return result;
 	}
 
