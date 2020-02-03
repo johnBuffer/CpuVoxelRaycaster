@@ -44,7 +44,7 @@ struct RayCaster
 {
 	const float eps = 0.001f;
 
-	RayCaster(const LSVO& svo_, const sf::Vector2i& render_size_)
+	RayCaster(const Volumetric& svo_, const sf::Vector2i& render_size_)
 		: svo(svo_)
 		, render_size(render_size_)
 	{
@@ -124,7 +124,7 @@ struct RayCaster
 		context.complexity += intersection.complexity;
 		context.distance = intersection.distance;
 
-		/*if (intersection.cell) {
+		if (intersection.cell) {
 			//result.color = sf::Color::Red;
 			result.distance = intersection.distance;
 			const Cell& cell = *(intersection.cell);
@@ -172,7 +172,11 @@ struct RayCaster
 				mult(obj_color, gi_color);
 				add(result.color, obj_color);
 			}
-		}*/
+		}
+
+		if (intersection.cell) {
+			return result;
+		}
 
 		const int32_t c = context.complexity;
 		sf::Color color(c, c, c);
@@ -309,7 +313,7 @@ struct RayCaster
 	sf::Image image_side;
 	sf::Image image_top;
 
-	const LSVO& svo;
+	const Volumetric& svo;
 
 	const sf::Vector2i render_size;
 

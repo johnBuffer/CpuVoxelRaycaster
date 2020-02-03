@@ -19,13 +19,13 @@
 
 int32_t main()
 {
-	constexpr uint32_t win_width = 1600;
-	constexpr uint32_t win_height = 900;
+	constexpr uint32_t win_width = 800;
+	constexpr uint32_t win_height = 800;
 
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
 	window.setMouseCursorVisible(false);
 
-	constexpr float render_scale = 0.5f;
+	constexpr float render_scale = 1.0f;
 	constexpr uint32_t RENDER_WIDTH = uint32_t(win_width  * render_scale);
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
@@ -42,7 +42,7 @@ int32_t main()
 
 	const glm::vec3 camera_origin(0.0f, 0.0f, 0.0f);
 
-	constexpr int32_t size = 16;
+	constexpr int32_t size = 256;
 	constexpr int32_t grid_size_x = size;
 	constexpr int32_t grid_size_y = size;
 	constexpr int32_t grid_size_z = size;
@@ -50,7 +50,7 @@ int32_t main()
 	Volume* volume_raw = new Volume();
 
 	Camera camera;
-	camera.position = glm::vec3(10, 10, 10);
+	camera.position = glm::vec3(0, 0, 0);
 	camera.view_angle = glm::vec2(0.0f);
 	camera.fov = 1.0f;
 
@@ -58,7 +58,7 @@ int32_t main()
 
 	EventManager event_manager(window);
 
-	/*FastNoise myNoise;
+	FastNoise myNoise;
 	myNoise.SetNoiseType(FastNoise::SimplexFractal);
 	for (uint32_t x = 0; x < grid_size_x; x++) {
 		for (uint32_t z = 0; z < grid_size_z; z++) {
@@ -75,22 +75,17 @@ int32_t main()
 				volume_raw->setCell(Cell::Solid, Cell::Grass, x, grid_size_y - y - 1, z);
 			}
 		}
-	}*/
-
-	volume_raw->setCell(Cell::Solid, Cell::Grass, 0, 0, 0);
-	volume_raw->setCell(Cell::Solid, Cell::Grass, 1, 0, 0);
-	volume_raw->setCell(Cell::Solid, Cell::Grass, 1, 2, 0);
-	volume_raw->setCell(Cell::Solid, Cell::Grass, 3, 3, 3);
+	}
 
 	LSVO lsvo;
 	lsvo.importFromSVO(*volume_raw);
-	lsvo.print();
+	//lsvo.print();
 
 	delete volume_raw;
 
 	RayCaster raycaster(lsvo, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
 
-	const uint32_t thread_count = 1U;
+	const uint32_t thread_count = 16U;
 	const uint32_t area_count = uint32_t(sqrt(thread_count));
 	swrm::Swarm swarm(thread_count);
 
@@ -105,10 +100,7 @@ int32_t main()
 	uint32_t frame_count = 0U;
 	float frame_time = 0.0f;
 
-	return 0;
-
-	while (window.isOpen())
-	{
+	while (window.isOpen()) {
 		sf::Clock frame_clock;
 		const sf::Vector2i mouse_pos = sf::Mouse::getPosition(window);
 
@@ -118,7 +110,7 @@ int32_t main()
 			controller.updateCameraView(mouse_sensitivity * glm::vec2(mouse_pos.x - win_width * 0.5f, (win_height  * 0.5f) - mouse_pos.y), camera);
 		}
 
-		//camera.setViewAngle(glm::vec2(3.7f, -0.2f));
+		//camera.setViewAngle(glm::vec2(0.845f, -0.625f));
 
 		event_manager.processEvents(controller, camera, raycaster);
 
@@ -167,7 +159,7 @@ int32_t main()
 		}
 
 		// Add some persistence to reduce the noise
-		const float old_value_conservation = raycaster.use_samples ? 0.0f : 0.75f;
+		const float old_value_conservation = raycaster.use_samples ? 0.0f : 0.0f;
 		sf::RectangleShape cache1(sf::Vector2f(RENDER_WIDTH, RENDER_HEIGHT));
 		cache1.setFillColor(sf::Color(255 * old_value_conservation, 255 * old_value_conservation, 255 * old_value_conservation));
 		sf::RectangleShape cache2(sf::Vector2f(win_width, win_height));

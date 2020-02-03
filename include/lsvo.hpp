@@ -51,7 +51,7 @@ void compileSVO_rec(const Node* node, std::vector<LNode>& data, const uint32_t n
 						if (sub_node) {
 							const uint8_t sub_index = z * 4 + y * 2 + x;
 							data[node_index].child_mask |= (1U << sub_index);
-							std::cout << "Add child to IDX " << node_index << " Child Mask " << std::bitset<8>(data[node_index].child_mask) << std::endl;
+							// std::cout << "Add child to IDX " << node_index << " Child Mask " << std::bitset<8>(data[node_index].child_mask) << std::endl;
 							if (!(sub_node->leaf)) {
 								compileSVO_rec(sub_node, data, child_pos + sub_index, max_offset);
 							}
@@ -102,7 +102,7 @@ struct LSVO : public Volumetric
 	{
 		const std::string indent = "  ";
 		LNode current_node = data[node_index];
-		std::cout << level_indent << "Index " << node_index << " leaf_mask " << std::bitset<8>(current_node.leaf_mask) << " child_mask " << std::bitset<8>(current_node.child_mask);
+		std::cout << level_indent << "Index " << node_index << " offset " << current_node.child_offset << " leaf_mask " << std::bitset<8>(current_node.leaf_mask) << " child_mask " << std::bitset<8>(current_node.child_mask);
 		for (uint32_t i(0); i < 8U; ++i) {
 			if (hasChild(current_node.child_mask, i)) {
 				std::cout << " (" << i % 2 << ", " << (i / 2U)%2 << ", " << i / 4U << ")";
@@ -197,11 +197,11 @@ struct LSVO : public Volumetric
 		const glm::vec3 t = float(cell_size) * ray.t;
 
 		const LNode current_node = data[node_index];
-		const uint8_t sub_index = coordToIndex(cell_pos_i);
 
 		float t_max_min = 0.0f;
 		const float t_total = ray.t_total;
 		while (checkCell(cell_pos_i) && ray.point.complexity < max_iter) {
+			const uint8_t sub_index = coordToIndex(cell_pos_i);
 			// Increase pixel complexity
 			++ray.point.complexity;
 			// We enter the sub node
