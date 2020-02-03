@@ -80,6 +80,7 @@ int32_t main()
 	volume_raw->setCell(Cell::Solid, Cell::Grass, 0, 0, 0);
 	volume_raw->setCell(Cell::Solid, Cell::Grass, 1, 0, 0);
 	volume_raw->setCell(Cell::Solid, Cell::Grass, 1, 2, 0);
+	volume_raw->setCell(Cell::Solid, Cell::Grass, 3, 3, 3);
 
 	LSVO lsvo;
 	lsvo.importFromSVO(*volume_raw);

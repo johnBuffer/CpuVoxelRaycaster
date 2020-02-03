@@ -27,8 +27,8 @@ void compileSVO_rec(const Node* node, std::vector<LNode>& data, const uint32_t n
 		max_offset = offset > max_offset ? offset : max_offset;
 		data[node_index].child_offset = offset;
 
-		bool empty = false;
-		/*for (uint8_t x(0U); x < 2; ++x) {
+		bool empty = true;
+		for (uint8_t x(0U); x < 2; ++x) {
 			for (uint8_t y(0U); y < 2; ++y) {
 				for (uint8_t z(0U); z < 2; ++z) {
 					if (node->sub[x][y][z]) {
@@ -37,7 +37,7 @@ void compileSVO_rec(const Node* node, std::vector<LNode>& data, const uint32_t n
 					}
 				}
 			}
-		}*/
+		}
 
 		if (!empty) {
 			for (uint8_t i(8U); i--;) {
@@ -52,7 +52,7 @@ void compileSVO_rec(const Node* node, std::vector<LNode>& data, const uint32_t n
 							const uint8_t sub_index = z * 4 + y * 2 + x;
 							data[node_index].child_mask |= (1U << sub_index);
 							std::cout << "Add child to IDX " << node_index << " Child Mask " << std::bitset<8>(data[node_index].child_mask) << std::endl;
-							if (!sub_node->leaf) {
+							if (!(sub_node->leaf)) {
 								compileSVO_rec(sub_node, data, child_pos + sub_index, max_offset);
 							}
 							else {
@@ -94,6 +94,7 @@ struct LSVO : public Volumetric
 
 	void print() const
 	{
+		std::cout << std::endl;
 		print_rec(0, "");
 	}
 
@@ -101,10 +102,26 @@ struct LSVO : public Volumetric
 	{
 		const std::string indent = "  ";
 		LNode current_node = data[node_index];
-		std::cout << level_indent << "Index " << node_index << " child_mask " << std::bitset<8>(current_node.child_mask) << std::endl;
-		for (uint32_t i(8); i--;) {
+		std::cout << level_indent << "Index " << node_index << " leaf_mask " << std::bitset<8>(current_node.leaf_mask) << " child_mask " << std::bitset<8>(current_node.child_mask);
+		for (uint32_t i(0); i < 8U; ++i) {
 			if (hasChild(current_node.child_mask, i)) {
-				print_rec(current_node.child_offset + i, level_indent + indent);
+				std::cout << " (" << i % 2 << ", " << (i / 2U)%2 << ", " << i / 4U << ")";
+			}
+		}
+		std::cout << std::endl;
+
+		for (uint32_t i(0); i < 8U; ++i) {
+			const uint32_t child_index = node_index + current_node.child_offset + i;
+			if (hasChild(current_node.child_mask, i)) {
+				if (isLeaf(current_node.leaf_mask, i)) {
+					std::cout << level_indent + indent << "Index " << child_index << " LEAF (" << i % 2 << ", " << (i / 2U)%2 << ", " << i / 4U << ")" << std::endl;
+				}
+				else {
+					print_rec(child_index, level_indent + indent);
+				}
+			}
+			else {
+				std::cout << level_indent + indent << "Index " << child_index << " EMPTY" << std::endl;
 			}
 		}
 	}
