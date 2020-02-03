@@ -77,10 +77,13 @@ int32_t main()
 		}
 	}*/
 
-	volume_raw->setCell(Cell::Solid, Cell::Grass, 12, 12, 12);
+	volume_raw->setCell(Cell::Solid, Cell::Grass, 0, 0, 0);
+	volume_raw->setCell(Cell::Solid, Cell::Grass, 1, 0, 0);
+	volume_raw->setCell(Cell::Solid, Cell::Grass, 1, 2, 0);
 
 	LSVO lsvo;
 	lsvo.importFromSVO(*volume_raw);
+	lsvo.print();
 
 	delete volume_raw;
 

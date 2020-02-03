@@ -92,6 +92,23 @@ struct LSVO : public Volumetric
 		cell->texture = Cell::Texture::Grass;
 	}
 
+	void print() const
+	{
+		print_rec(0, "");
+	}
+
+	void print_rec(const uint32_t node_index, const std::string level_indent) const
+	{
+		const std::string indent = "  ";
+		LNode current_node = data[node_index];
+		std::cout << level_indent << "Index " << node_index << " child_mask " << std::bitset<8>(current_node.child_mask) << std::endl;
+		for (uint32_t i(8); i--;) {
+			if (hasChild(current_node.child_mask, i)) {
+				print_rec(current_node.child_offset + i, level_indent + indent);
+			}
+		}
+	}
+
 	void setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z) {}
 
 	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, const uint32_t max_iter) const
