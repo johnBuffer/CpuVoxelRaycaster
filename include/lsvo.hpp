@@ -5,10 +5,10 @@
 #include <bitset>
 
 
+template<uint8_t MAX_DEPTH>
 struct LSVO : public Volumetric
 {
 	LSVO(const SVO& svo)
-		: max_level(svo.m_max_level)
 	{
 		importFromSVO(svo);
 	}
@@ -25,12 +25,12 @@ struct LSVO : public Volumetric
 
 	glm::vec3 getT(const LRay& ray) const
 	{
-		return -ray.sign * ray.inv_direction;
+		return -0.5f * (ray.sign * ray.inv_direction);
 	}
 
-	vec3bool getChildPos(float t_min, const glm::vec3& t_center) const
+	vec3bool getChildPos(const glm::vec3& t_center, const glm::vec3& t_ray) const
 	{
-		return vec3bool(t_min > t_center.x, t_min > t_center.y, t_min > t_center.z);
+		return vec3bool(t_ray.x < t_center.x, t_ray.y < t_center.y, t_ray.z < t_center.z);
 	}
 
 	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, const uint32_t max_iter) const
@@ -38,24 +38,23 @@ struct LSVO : public Volumetric
 		LRay ray(position, direction);
 		HitPoint result;
 		// Initialize stack
-		constexpr uint8_t stack_size = 10U;
-		uint64_t stack[stack_size];
-		int8_t scale = max_level - 1;
-		uint32_t size = std::pow(scale, 2U);
+		OctreeStack stack[MAX_DEPTH];
+		int8_t scale = MAX_DEPTH - 1;
+		uint32_t size = std::pow(2U, scale + 1U);
 		// Initialize t_span
 		const glm::vec3 t0 = ray.getT(glm::vec3(0.0f));
-		const glm::vec3 t1 = ray.getT(glm::vec3(size));
+		const glm::vec3 t1 = ray.getT(glm::vec3(static_cast<float>(size)));
+
 		glm::vec2 t_span;
-		t_span.x = (std::max(t0.x, std::min(t0.y, t0.z)));
+		t_span.x = (std::max(t0.x, std::max(t0.y, t0.z)));
 		t_span.y = (std::min(t1.x, std::min(t1.y, t1.z)));
 		// Initialize t_center
 		const glm::vec3 t_center = getT(ray);
 		// Initialize child position
-		vec3bool child_pos = getChildPos(t_span.x, float(size) * t_center);
+		vec3bool child_pos = getChildPos(float(size) * t_center, t0);
 		// Iterating through the Octree
-		while (scale < max_level) {
-			
-		}
+		
+		std::cout << std::bitset<8>(child_pos.data) << std::endl;
 
 		return result;
 	}
@@ -104,6 +103,5 @@ struct LSVO : public Volumetric
 	}
 
 	std::vector<LNode> data;
-	const uint8_t max_level;
 	Cell* cell;
 };

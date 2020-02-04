@@ -28,7 +28,8 @@ struct Node
 class SVO : public Volumetric
 {
 public:
-	friend class LSVO;
+	template<uint8_t>
+	friend struct LSVO;
 
 	SVO()
 	{
@@ -86,7 +87,7 @@ public:
 	Node* m_root;
 
 private:
-	const uint32_t m_max_level = 9U;
+	const uint32_t m_max_level = 4U;
 
 	void rec_setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z, Node* node, uint32_t size)
 	{
