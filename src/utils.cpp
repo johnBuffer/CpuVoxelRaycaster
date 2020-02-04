@@ -5,7 +5,7 @@
 #include <SFML/Graphics.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-
+#include <sstream>
 
 
 void add(sf::Color& color, float f)
@@ -80,4 +80,11 @@ glm::mat3 generateRotationMatrix(const glm::vec2& angle)
 	const glm::mat4 ry = glm::rotate(glm::mat4(1.0f), -angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
 
 	return ry * rx;
+}
+
+std::string toString(const glm::vec3& vec)
+{
+	std::stringstream sx;
+	sx << "(" << vec.x << ", " << vec.y << ", " << vec.z << ")";
+	return sx.str();
 }

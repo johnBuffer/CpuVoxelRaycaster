@@ -23,38 +23,49 @@ struct LSVO : public Volumetric
 
 	void setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z) {}
 
-	glm::vec3 getT(const LRay& ray) const
+	glm::vec3 getTCenter(const LRay& ray, float size) const
 	{
-		return -0.5f * (ray.sign * ray.inv_direction);
+		return (0.5f * size) * (ray.sign * ray.inv_direction);
 	}
 
-	vec3bool getChildPos(const glm::vec3& t_center, const glm::vec3& t_ray) const
+	vec3bool getChildPos(const glm::vec3& t_center, float t_max) const
 	{
-		return vec3bool(t_ray.x < t_center.x, t_ray.y < t_center.y, t_ray.z < t_center.z);
+		return vec3bool(t_max > t_center.x, t_max > t_center.y, t_max > t_center.z);
 	}
 
 	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, const uint32_t max_iter) const
 	{
 		LRay ray(position, direction);
+		std::cout << "RAY Start " << toString(ray.start) << " Direction " << toString(ray.direction) << std::endl;
+
 		HitPoint result;
 		// Initialize stack
 		OctreeStack stack[MAX_DEPTH];
 		int8_t scale = MAX_DEPTH - 1;
 		uint32_t size = std::pow(2U, scale + 1U);
 		// Initialize t_span
-		const glm::vec3 t0 = ray.getT(glm::vec3(0.0f));
-		const glm::vec3 t1 = ray.getT(glm::vec3(static_cast<float>(size)));
+		const glm::vec3 tc0 = ray.getT(glm::vec3(0.0f));
+		const glm::vec3 tc1 = ray.getT(glm::vec3(static_cast<float>(size)));
+		const glm::vec3 t0 = glm::min(tc0, tc1);
+		const glm::vec3 t1 = glm::max(tc0, tc1);
+
+		std::cout << "Tc0 " << toString(tc0) << " Tc1 " << toString(tc1) << std::endl;
+		std::cout << "T0 " << toString(t0) << " T1 " << toString(t1) << std::endl;
 
 		glm::vec2 t_span;
 		t_span.x = (std::max(t0.x, std::max(t0.y, t0.z)));
 		t_span.y = (std::min(t1.x, std::min(t1.y, t1.z)));
+
 		// Initialize t_center
-		const glm::vec3 t_center = getT(ray);
+		const glm::vec3 t_center = getTCenter(ray, size);
 		// Initialize child position
-		vec3bool child_pos = getChildPos(float(size) * t_center, t0);
+		vec3bool child_pos = getChildPos(t_center, std::abs(t_span.x));
+
+		std::cout << "ABS(Tmin) " << std::abs(t_span.x) << " Tcenter " << toString(t_center) << std::endl;
+		std::cout << "ChildPos " << child_pos.x() << ", " << child_pos.y() << ", " << child_pos.z() << std::endl;
 		// Iterating through the Octree
 		
-		std::cout << std::bitset<8>(child_pos.data) << std::endl;
+		
 
 		return result;
 	}

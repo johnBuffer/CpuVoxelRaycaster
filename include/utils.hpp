@@ -21,3 +21,5 @@ float getRand(float min = -0.5f, float max = 0.5f);
 const uint32_t getMinComponentIndex(const glm::vec3& v);
 
 glm::mat3 generateRotationMatrix(const glm::vec2& angle);
+
+std::string toString(const glm::vec3& vec);

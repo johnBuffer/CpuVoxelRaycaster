@@ -19,8 +19,8 @@
 
 int32_t main()
 {
-	const glm::vec3 test_block(15.0f, 15.0f, 15.0f);
-	const glm::vec3 camera_origin(14.0f, 0.5f, 8.25f);
+	const glm::vec3 test_block(1.0f, 1.0f, 1.0f);
+	const glm::vec3 camera_origin(1.5f, 1.5f, 10.25f);
 	const glm::vec3 camera_ray = glm::normalize(test_block - camera_origin);
 
 	SVO svo;
