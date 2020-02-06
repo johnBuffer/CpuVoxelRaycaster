@@ -29,11 +29,6 @@ struct LSVO : public Volumetric
 		return planes_pos * inv_direction - offset;
 	}
 
-	vec3bool getChildPos(const glm::vec3& t_center, float t_min) const
-	{
-		return vec3bool(t_center.x > t_min, t_center.y > t_min, t_center.z > t_min);
-	}
-
 	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, const uint32_t max_iter) const
 	{
 		HitPoint result;
@@ -69,15 +64,15 @@ struct LSVO : public Volumetric
 		if (t_center.x > t_min) { child_id ^= 1u, pos.x = 1.5f; }
 		if (t_center.y > t_min) { child_id ^= 2u, pos.y = 1.5f; }
 		if (t_center.z > t_min) { child_id ^= 4u, pos.z = 1.5f; }
-		std::cout << "START at " << (child_id ^ octant_mask) << std::endl;
+		// std::cout << "START at " << (child_id ^ octant_mask) << std::endl;
 		// Explore octree
-		while (scale < MAX_DEPTH) {
+		while (scale < MAX_DEPTH && result.complexity < max_iter) {
 			++result.complexity;
 			if (!child) {
 				child = parent;
 			}
-			std::string indent = "";
-			for (uint32_t i(0); i<MAX_DEPTH - scale; ++i) { indent += "  "; }
+			//std::string indent = "";
+			//for (uint32_t i(0); i<MAX_DEPTH - scale; ++i) { indent += "  "; }
 			// Compute new T span
 			const glm::vec3 t_corner = getT(pos, r_inv, r_off);
 			const float tc_max = std::min(t_corner.x, std::min(t_corner.y, t_corner.z));
@@ -92,7 +87,7 @@ struct LSVO : public Volumetric
 					const uint8_t leaf_mask = parent_ref.leaf_mask >> (child_id ^ octant_mask);
 					// We hit a leaf
 					if (leaf_mask & 1u) {
-						std::cout << indent << int32_t(scale) << " HIT at " << toString(position + t_min * direction) << std::endl;
+						//std::cout << indent << int32_t(scale) << " HIT at " << toString(position + t_min * direction) << std::endl;
 						break;
 					}
 					// Eventually add parent to the stack
@@ -113,7 +108,7 @@ struct LSVO : public Volumetric
 					if (t_half.x > t_min) { child_id ^= 1u, pos.x += scale_f; }
 					if (t_half.y > t_min) { child_id ^= 2u, pos.y += scale_f; }
 					if (t_half.z > t_min) { child_id ^= 4u, pos.z += scale_f; }
-					std::cout << indent << int32_t(scale) << " PUSH, new child_id " << (child_id ^ octant_mask) << std::endl;
+					//std::cout << indent << int32_t(scale) << " PUSH, new child_id " << (child_id ^ octant_mask) << std::endl;
 					t_max = tv_max;
 					child = 0u;
 					continue;
@@ -127,7 +122,7 @@ struct LSVO : public Volumetric
 
 			t_min = tc_max;
 			child_id ^= step_mask;
-			std::cout << indent << int32_t(scale) << " ADVANCE, new child_id " << (child_id ^ octant_mask) << std::endl;
+			//std::cout << indent << int32_t(scale) << " ADVANCE, new child_id " << (child_id ^ octant_mask) << std::endl;
 
 			if (child_id & step_mask) {
 				while (!stack[++scale].valid) {}
@@ -146,7 +141,7 @@ struct LSVO : public Volumetric
 				h = 0.0f;
 				child = 0;
 
-				std::cout << indent << "POP, new scale " << int32_t(scale)  << std::endl;
+				//std::cout << indent << "POP, new scale " << int32_t(scale)  << std::endl;
 			}
 		}
 		
@@ -175,26 +170,6 @@ struct LSVO : public Volumetric
 			point.normal = glm::vec3(0.0f, 0.0f, -ray.step.z);
 			point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.y));
 		}
-	}
-
-	inline static bool checkCell(const glm::vec3& cell_coords)
-	{
-		
-	}
-
-	uint8_t coordToIndex(const glm::vec3& coords) const
-	{
-		return coords.z * 4 + coords.y * 2 + coords.x;
-	}
-
-	bool hasChild(const LNode node, const uint8_t index) const
-	{
-		return (node.child_mask >> index) & 1U;
-	}
-
-	bool isLeaf(const LNode node, uint8_t index) const
-	{
-		return (node.leaf_mask >> index) & 1U;
 	}
 
 	std::vector<LNode> data;

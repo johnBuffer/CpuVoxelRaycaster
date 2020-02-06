@@ -71,7 +71,8 @@ struct RayCaster
 		RayContext context;
 		context.distance = 0.0f;
 
-		ColorResult result = castRay(start, direction, 1.5f * time, context);
+		const float side_size = 256.0f;
+		ColorResult result = castRay(start / side_size, direction, 1.5f * time, context);
 
 		sf::Color old_color = render_image.getPixel(pixel.x, pixel.y);
 
@@ -124,59 +125,9 @@ struct RayCaster
 		context.complexity += intersection.complexity;
 		context.distance = intersection.distance;
 
-		if (intersection.cell) {
-			//result.color = sf::Color::Red;
-			result.distance = intersection.distance;
-			const Cell& cell = *(intersection.cell);
-			const glm::vec3 hit_position = intersection.position + eps * intersection.normal;
-
-			sf::Color hit_texture_color = sf::Color::Black;
-			if (cell.type == Cell::Solid) {
-				hit_texture_color = getTextureColorFromHitPoint(intersection);
-				result.color = hit_texture_color;
-				if (use_ao) {
-					mult(result.color, getAmbientOcclusion(intersection));
-				}
-			}
-			else if (cell.type == Cell::Mirror) {
-				const float roughness = 0.04f;
-				const glm::vec3 normal = glm::normalize(intersection.normal + glm::vec3(roughness * getRand(), 0.0f, roughness * getRand()));
-				context.bounds++;
-				result = castRay(hit_position, glm::reflect(direction, normal), time, context);
-				mult(result.color, 0.8f);
-			}
-
-			const uint32_t shadow_sample = use_samples ? 4U : 1U;
-
-			if (cell.texture != Cell::Red) {
-				float light_intensity = 0.0f;
-				for (uint32_t i(shadow_sample); i--;) {
-					const glm::vec3 light_point = light_position + glm::vec3(getRand(-25.0f, 25.0f), getRand(-25.0f, 25.0f), 0.0f);
-					const glm::vec3 point_to_light = glm::normalize(light_point - intersection.position);
-					const HitPoint light_intersection = svo.castRay(hit_position, point_to_light, 128U);
-
-					if (!light_intersection.cell) {
-						light_intensity += std::max(0.0f, glm::dot(point_to_light, intersection.normal));
-					}
-				}
-
-				mult(result.color, std::max(0.5f, (light_intensity) / float(shadow_sample)));
-			}
-
-			if (use_gi && context.gi_bounce) {
-				--context.gi_bounce;
-				GIContribution gic;
-				getGlobalIllumination(intersection, context, gic);
-				const sf::Color gi_color(gic.r, gic.g, gic.b);
-				sf::Color obj_color = hit_texture_color;
-				mult(obj_color, gi_color);
-				add(result.color, obj_color);
-			}
-		}
-
-		/*const int32_t c = context.complexity;
+		const int32_t c = context.complexity;
 		sf::Color color(c, c, c);
-		result.color = color;*/
+		result.color = color;
 		return result;
 	}
 
@@ -293,7 +244,6 @@ struct RayCaster
 		clamp(coords.y, 0.0f, 1.0f);
 		return image.getPixel(uint32_t(tex_size.x * coords.x), uint32_t(tex_size.y * coords.y));
 	}
-
 
 	const sf::Color getColorFromNormal(const glm::vec3& normal)
 	{
