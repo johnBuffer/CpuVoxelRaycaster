@@ -56,8 +56,8 @@ struct LSVO : public Volumetric
 		float t_min = std::max(t0.x, std::max(t0.y, t0.z));
 		float t_max = std::min(t1.x, std::min(t1.y, t1.z));
 		float h = t_max;
-		t_min = std::max(0.0f, t_min);
-		t_max = std::min(1.0f, t_max);
+		//t_min = std::max(0.0f, t_min);
+		//t_max = std::min(1.0f, t_max);
 		// Initialize child position
 		uint32_t parent_id = 0u;
 		uint8_t idx = 0u;
@@ -66,15 +66,15 @@ struct LSVO : public Volumetric
 		if (t_center.x > t_min) { idx ^= 1u, pos.x = 1.5f; }
 		if (t_center.y > t_min) { idx ^= 2u, pos.y = 1.5f; }
 		if (t_center.z > t_min) { idx ^= 4u, pos.z = 1.5f; }
-		//std::cout << "START at " << (idx ^ octant_mask) << std::endl;
+		std::cout << "START at " << (idx ^ octant_mask) << std::endl;
 		// Explore octree
 		while (scale < MAX_DEPTH) {
 			++result.complexity;
 
 			const uint8_t child_shift = idx ^ octant_mask;
 
-			//std::string indent = "";
-			//for (uint32_t i(0); i<MAX_DEPTH - scale; ++i) { indent += "  "; }
+			std::string indent = "";
+			for (uint32_t i(0); i<MAX_DEPTH - scale; ++i) { indent += "  "; }
 			// Compute new T span
 			const glm::vec3 t_corner = getT(pos, t_coef, t_bias);
 			const float tc_max = std::min(t_corner.x, std::min(t_corner.y, t_corner.z));
@@ -90,7 +90,7 @@ struct LSVO : public Volumetric
 					// We hit a leaf
 					if (leaf_mask & 1u) {
 						result.hit = 1u;
-						//std::cout << indent << int32_t(scale) << " HIT at " << toString(position + t_min * direction) << std::endl;
+						std::cout << indent << int32_t(scale) << " HIT at " << toString(position + t_min * direction) << std::endl;
 						break;
 					}
 					// Eventually add parent to the stack
@@ -111,7 +111,7 @@ struct LSVO : public Volumetric
 					if (t_half.x > t_min) { idx ^= 1u, pos.x += scale_f; }
 					if (t_half.y > t_min) { idx ^= 2u, pos.y += scale_f; }
 					if (t_half.z > t_min) { idx ^= 4u, pos.z += scale_f; }
-					//std::cout << indent << int32_t(scale) << " PUSH, new child_id " << int32_t(child_shift) << std::endl;
+					std::cout << indent << int32_t(scale) << " PUSH, new child_id " << int32_t(child_shift) << std::endl;
 					t_max = tv_max;
 					continue;
 				}
@@ -142,10 +142,10 @@ struct LSVO : public Volumetric
 				idx = (shx & 1u) | ((shy & 1u) << 1u) | ((shz & 1u) << 2u);
 
 				h = 0.0f;
-				//std::cout << indent << "POP, new scale " << int32_t(scale)  << std::endl;
+				std::cout << indent << "POP, new scale " << int32_t(scale)  << std::endl;
 			}
 			else {
-				//std::cout << indent << int32_t(scale) << " ADVANCE, new child_id " << int32_t(idx ^ octant_mask) << std::endl;
+				std::cout << indent << int32_t(scale) << " ADVANCE, new child_id " << int32_t(idx ^ octant_mask) << std::endl;
 			}
 		}
 		
