@@ -54,9 +54,9 @@ struct LSVO : public Volumetric
 		const glm::vec3 t0 = getT(glm::vec3(1.0f), r_inv, r_off);
 		const glm::vec3 t1 = getT(glm::vec3(0.0f), r_inv, r_off);
 
-		glm::vec2 t_span;
-		t_span.x = (std::max(t0.x, std::max(t0.y, t0.z)));
-		t_span.y = (std::min(t1.x, std::min(t1.y, t1.z)));
+		float t_min = (std::max(t0.x, std::max(t0.y, t0.z)));
+		float t_max = (std::min(t1.x, std::min(t1.y, t1.z)));
+		float h = t_max;
 
 		// Initialize t_center
 		const glm::vec3 t_center = getT(glm::vec3(0.5f), r_inv, r_off);
@@ -66,9 +66,9 @@ struct LSVO : public Volumetric
 		uint32_t child_id = 0u;
 		glm::vec3 pos(0.0f);
 		//child_pos.data ^= octant_mask;
-		if (t_center.x > t_span.x) { child_id ^= 1u, pos.x = 0.5f; }
-		if (t_center.y > t_span.x) { child_id ^= 2u, pos.y = 0.5f; }
-		if (t_center.z > t_span.x) { child_id ^= 4u, pos.z = 0.5f; }
+		if (t_center.x > t_min) { child_id ^= 1u, pos.x = 0.5f; }
+		if (t_center.y > t_min) { child_id ^= 2u, pos.y = 0.5f; }
+		if (t_center.z > t_min) { child_id ^= 4u, pos.z = 0.5f; }
 		// Explore octree
 		while (scale < MAX_DEPTH) {
 			if (!child_ptr) {
@@ -76,11 +76,18 @@ struct LSVO : public Volumetric
 			}
 			// Compute new T span
 			const glm::vec3 t_corner = getT(pos, r_inv, r_off);
-			const float t_max = std::min(t_corner.x, std::min(t_corner.y, t_corner.z));
+			const float tc_max = std::min(t_corner.x, std::min(t_corner.y, t_corner.z));
 			// Check if child exists here
-			const uint8_t child_mask = parent->child_mask >> idx;
-			if (child_mask & 0x1u) {
+			const uint8_t child_mask = parent->child_mask >> child_id;
+			if ((child_mask & 1u) && t_min <= t_max) {
+				const float tv_max = std::min(tc_max, t_max);
+				const float half = size_f * 0.5f;
 
+				const glm::vec3 t_half = half * r_inv + t_corner;
+
+				if (t_min <= tv_max) {
+
+				}
 			}
 		}
 		
