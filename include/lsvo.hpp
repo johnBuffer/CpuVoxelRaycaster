@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ray.hpp"
 #include "lsvo_utils.hpp"
 #include "volumetric.hpp"
 #include <bitset>
@@ -23,50 +24,66 @@ struct LSVO : public Volumetric
 
 	void setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z) {}
 
-	glm::vec3 getTCenter(const LRay& ray, float size) const
+	glm::vec3 getT(const glm::vec3& planes_pos, const glm::vec3& inv_direction, const glm::vec3& offset) const
 	{
-		return (0.5f * size) * (ray.sign * ray.inv_direction);
+		return planes_pos * inv_direction - offset;
 	}
 
-	vec3bool getChildPos(const glm::vec3& t_center, float t_max) const
+	vec3bool getChildPos(const glm::vec3& t_center, float t_min) const
 	{
-		return vec3bool(t_max > t_center.x, t_max > t_center.y, t_max > t_center.z);
+		return vec3bool(t_center.x > t_min, t_center.y > t_min, t_center.z > t_min);
 	}
 
 	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, const uint32_t max_iter) const
 	{
-		LRay ray(position, direction);
-		std::cout << "RAY Start " << toString(ray.start) << " Direction " << toString(ray.direction) << std::endl;
-
 		HitPoint result;
+		// Check octant mask and modify ray accordingly
+		uint8_t octant_mask = 0u;
+		glm::vec3 r_dir = glm::normalize(direction);
+		if (r_dir.x > 0.0f) r_dir.x = -r_dir.x, octant_mask ^= 1u;
+		if (r_dir.y > 0.0f) r_dir.y = -r_dir.y, octant_mask ^= 2u;
+		if (r_dir.z > 0.0f) r_dir.z = -r_dir.z, octant_mask ^= 4u;
+		const glm::vec3 r_inv = 1.0f / r_dir;
+		const glm::vec3 r_off = position * r_inv;
 		// Initialize stack
 		OctreeStack stack[MAX_DEPTH];
 		int8_t scale = MAX_DEPTH - 1;
 		uint32_t size = std::pow(2U, scale + 1U);
+		float size_f = 0.5f;
 		// Initialize t_span
-		const glm::vec3 tc0 = ray.getT(glm::vec3(0.0f));
-		const glm::vec3 tc1 = ray.getT(glm::vec3(static_cast<float>(size)));
-		const glm::vec3 t0 = glm::min(tc0, tc1);
-		const glm::vec3 t1 = glm::max(tc0, tc1);
-
-		std::cout << "Tc0 " << toString(tc0) << " Tc1 " << toString(tc1) << std::endl;
-		std::cout << "T0 " << toString(t0) << " T1 " << toString(t1) << std::endl;
+		const glm::vec3 t0 = getT(glm::vec3(1.0f), r_inv, r_off);
+		const glm::vec3 t1 = getT(glm::vec3(0.0f), r_inv, r_off);
 
 		glm::vec2 t_span;
 		t_span.x = (std::max(t0.x, std::max(t0.y, t0.z)));
 		t_span.y = (std::min(t1.x, std::min(t1.y, t1.z)));
 
 		// Initialize t_center
-		const glm::vec3 t_center = getTCenter(ray, size);
+		const glm::vec3 t_center = getT(glm::vec3(0.5f), r_inv, r_off);
 		// Initialize child position
-		vec3bool child_pos = getChildPos(t_center, std::abs(t_span.x));
+		const LNode* parent = &(data[0]);
+		const LNode* child_ptr = nullptr;
+		uint32_t child_id = 0u;
+		glm::vec3 pos(0.0f);
+		//child_pos.data ^= octant_mask;
+		if (t_center.x > t_span.x) { child_id ^= 1u, pos.x = 0.5f; }
+		if (t_center.y > t_span.x) { child_id ^= 2u, pos.y = 0.5f; }
+		if (t_center.z > t_span.x) { child_id ^= 4u, pos.z = 0.5f; }
+		// Explore octree
+		while (scale < MAX_DEPTH) {
+			if (!child_ptr) {
+				child_ptr = parent;
+			}
+			// Compute new T span
+			const glm::vec3 t_corner = getT(pos, r_inv, r_off);
+			const float t_max = std::min(t_corner.x, std::min(t_corner.y, t_corner.z));
+			// Check if child exists here
+			const uint8_t child_mask = parent->child_mask >> idx;
+			if (child_mask & 0x1u) {
 
-		std::cout << "ABS(Tmin) " << std::abs(t_span.x) << " Tcenter " << toString(t_center) << std::endl;
-		std::cout << "ChildPos " << child_pos.x() << ", " << child_pos.y() << ", " << child_pos.z() << std::endl;
-		// Iterating through the Octree
+			}
+		}
 		
-		
-
 		return result;
 	}
 
