@@ -23,3 +23,7 @@ const uint32_t getMinComponentIndex(const glm::vec3& v);
 glm::mat3 generateRotationMatrix(const glm::vec2& angle);
 
 std::string toString(const glm::vec3& vec);
+
+uint32_t floatAsInt(float f);
+
+float intAsFloat(uint32_t i);

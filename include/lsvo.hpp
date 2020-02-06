@@ -49,45 +49,98 @@ struct LSVO : public Volumetric
 		OctreeStack stack[MAX_DEPTH];
 		int8_t scale = MAX_DEPTH - 1;
 		uint32_t size = std::pow(2U, scale + 1U);
-		float size_f = 0.5f;
+		float scale_f = 0.5f;
 		// Initialize t_span
-		const glm::vec3 t0 = getT(glm::vec3(1.0f), r_inv, r_off);
-		const glm::vec3 t1 = getT(glm::vec3(0.0f), r_inv, r_off);
+		const glm::vec3 t0 = getT(glm::vec3(2.0f), r_inv, r_off);
+		const glm::vec3 t1 = getT(glm::vec3(1.0f), r_inv, r_off);
 
 		float t_min = (std::max(t0.x, std::max(t0.y, t0.z)));
 		float t_max = (std::min(t1.x, std::min(t1.y, t1.z)));
 		float h = t_max;
 
 		// Initialize t_center
-		const glm::vec3 t_center = getT(glm::vec3(0.5f), r_inv, r_off);
+		const glm::vec3 t_center = getT(glm::vec3(1.5f), r_inv, r_off);
 		// Initialize child position
-		const LNode* parent = &(data[0]);
-		const LNode* child_ptr = nullptr;
+		const LNode* raw_data = &(data[0]);
+		uint32_t parent = 0u;
+		uint32_t child = 0u;
 		uint32_t child_id = 0u;
 		glm::vec3 pos(0.0f);
 		//child_pos.data ^= octant_mask;
-		if (t_center.x > t_min) { child_id ^= 1u, pos.x = 0.5f; }
-		if (t_center.y > t_min) { child_id ^= 2u, pos.y = 0.5f; }
-		if (t_center.z > t_min) { child_id ^= 4u, pos.z = 0.5f; }
+		if (t_center.x > t_min) { child_id ^= 1u, pos.x = 1.5f; }
+		if (t_center.y > t_min) { child_id ^= 2u, pos.y = 1.5f; }
+		if (t_center.z > t_min) { child_id ^= 4u, pos.z = 1.5f; }
 		// Explore octree
 		while (scale < MAX_DEPTH) {
-			if (!child_ptr) {
-				child_ptr = parent;
+			++result.complexity;
+			if (!child) {
+				child = parent;
 			}
 			// Compute new T span
 			const glm::vec3 t_corner = getT(pos, r_inv, r_off);
 			const float tc_max = std::min(t_corner.x, std::min(t_corner.y, t_corner.z));
 			// Check if child exists here
-			const uint8_t child_mask = parent->child_mask >> child_id;
+			const LNode& parent_ref = raw_data[parent];
+			const uint8_t child_mask = parent_ref.child_mask >> child_id;
 			if ((child_mask & 1u) && t_min <= t_max) {
 				const float tv_max = std::min(tc_max, t_max);
-				const float half = size_f * 0.5f;
-
+				const float half = scale_f * 0.5f;
 				const glm::vec3 t_half = half * r_inv + t_corner;
-
 				if (t_min <= tv_max) {
-
+					const uint8_t leaf_mask = parent_ref.leaf_mask;
+					// We hit a leaf
+					if ((leaf_mask >> child_id) & 1u) {
+						break;
+					}
+					// Eventually add parent to the stack
+					if (tc_max < h) {
+						stack[scale].parent_index = parent;
+						stack[scale].t_max = t_max;
+					}
+					h = tc_max;
+					// Update current voxel
+					parent += parent_ref.child_offset + child_id;
+					--scale;
+					child_id = 0u;
+					scale_f = half;
+					if (t_half.x > t_min) { child_id ^= 1u, pos.x += scale_f; }
+					if (t_half.y > t_min) { child_id ^= 2u, pos.y += scale_f; }
+					if (t_half.z > t_min) { child_id ^= 4u, pos.z += scale_f; }
+					t_max = tv_max;
+					child = 0u;
+					continue;
 				}
+			} // End of depth exploration
+
+			uint32_t step_mask = 0u;
+			if (t_corner.x <= tc_max) { step_mask ^= 1u, pos.x -= scale_f; }
+			if (t_corner.y <= tc_max) { step_mask ^= 2u, pos.y -= scale_f; }
+			if (t_corner.z <= tc_max) { step_mask ^= 4u, pos.z -= scale_f; }
+
+			t_min = tc_max;
+			child_id ^= step_mask;
+
+			if (child_id & step_mask) {
+				uint32_t differing_bits = 0u;
+				if (step_mask & 1u) { differing_bits |= floatAsInt(pos.x) ^ floatAsInt(pos.x + scale_f); }
+				if (step_mask & 2u) { differing_bits |= floatAsInt(pos.y) ^ floatAsInt(pos.y + scale_f); }
+				if (step_mask & 4u) { differing_bits |= floatAsInt(pos.z) ^ floatAsInt(pos.z + scale_f); }
+				scale = (floatAsInt((float)step_mask) >> 23u) - 127;
+				scale_f = intAsFloat((scale - MAX_DEPTH + 127) << 23u);
+				OctreeStack entry = stack[scale];
+				parent = entry.parent_index;
+				t_max = entry.t_max;
+
+				uint32_t shx = floatAsInt(pos.x) >> scale;
+				uint32_t shy = floatAsInt(pos.y) >> scale;
+				uint32_t shz = floatAsInt(pos.z) >> scale;
+				pos.x = intAsFloat(shx << scale);
+				pos.y = intAsFloat(shy << scale);
+				pos.z = intAsFloat(shz << scale);
+				child_id = (shx & 1u) | ((shy & 1u) << 1u) | ((shz & 1u) << 2u);
+
+				h = 0.0f;
+				child = 0;
 			}
 		}
 		

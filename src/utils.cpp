@@ -88,3 +88,18 @@ std::string toString(const glm::vec3& vec)
 	sx << "(" << vec.x << ", " << vec.y << ", " << vec.z << ")";
 	return sx.str();
 }
+
+uint32_t floatAsInt(float f)
+{
+	uint32_t result;
+	memcpy(&result, &f, 4u);
+	return result;
+}
+
+
+float intAsFloat(uint32_t i)
+{
+	float result;
+	memcpy(&result, &i, 4u);
+	return result;
+}

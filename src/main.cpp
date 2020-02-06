@@ -27,7 +27,11 @@ int32_t main()
 	SVO svo;
 	svo.setCell(Cell::Solid, Cell::Grass, test_block.x, test_block.y, test_block.z);
 
-	LSVO<4U> lsvo(svo);
+	LSVO<23U> lsvo(svo);
 
-	lsvo.castRay(camera_origin, camera_ray, 1024);
+	HitPoint result = lsvo.castRay(camera_origin, camera_ray, 1024);
+
+	std::cout << result.complexity << std::endl;
+
+	return 0;
 }
