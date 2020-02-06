@@ -25,7 +25,7 @@ int32_t main()
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
 	window.setMouseCursorVisible(false);
 
-	constexpr float render_scale = 0.2f;
+	constexpr float render_scale = 0.4f;
 	constexpr uint32_t RENDER_WIDTH = uint32_t(win_width  * render_scale);
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
@@ -42,7 +42,7 @@ int32_t main()
 
 	const glm::vec3 camera_origin(20.0f, 2.0f, 80.0f);
 
-	constexpr int32_t size = 256;
+	constexpr int32_t size = 64;
 	constexpr int32_t grid_size_x = size;
 	constexpr int32_t grid_size_y = size;
 	constexpr int32_t grid_size_z = size;
@@ -50,7 +50,7 @@ int32_t main()
 	Volume* volume_raw = new Volume();
 
 	Camera camera;
-	camera.position = glm::vec3(0, 0, 0);
+	camera.position = glm::vec3(1, 1, 1);
 	camera.view_angle = glm::vec2(0.0f);
 	camera.fov = 1.0f;
 
@@ -58,7 +58,7 @@ int32_t main()
 
 	EventManager event_manager(window);
 
-	FastNoise myNoise;
+	/*FastNoise myNoise;
 	myNoise.SetNoiseType(FastNoise::SimplexFractal);
 	for (uint32_t x = 0; x < grid_size_x; x++) {
 		for (uint32_t z = 0; z < grid_size_z; z++) {
@@ -75,9 +75,15 @@ int32_t main()
 				volume_raw->setCell(Cell::Solid, Cell::Grass, x, grid_size_y - y - 1, z);
 			}
 		}
-	}
+	}*/
 
-	LSVO<8> lsvo(*volume_raw);
+	volume_raw->setCell(Cell::Solid, Cell::Grass, 63, 63, 63);
+	volume_raw->setCell(Cell::Solid, Cell::Grass, 10, 0, 0);
+
+	constexpr uint8_t svo_depth = 6;
+	const float side_size = std::pow(2.0f, float(svo_depth));
+	const float scale = 1.0f / side_size;
+	LSVO<svo_depth> lsvo(*volume_raw);
 	//lsvo.print();
 
 	delete volume_raw;
@@ -137,7 +143,7 @@ int32_t main()
 					const float lens_y = float(y) / float(RENDER_HEIGHT) - 0.5f;
 					// Get ray to cast with stochastic blur baked into it
 					const CameraRay camera_ray = camera.getRay(glm::vec2(lens_x, lens_y));
-					raycaster.renderRay(sf::Vector2i(x, y), camera.position + camera_ray.world_rand_offset, camera_ray.ray, time);
+					raycaster.renderRay(sf::Vector2i(x, y), (camera.position + camera_ray.world_rand_offset)*scale, camera_ray.ray, time);
 				}
 			}
 		});

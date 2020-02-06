@@ -71,8 +71,7 @@ struct RayCaster
 		RayContext context;
 		context.distance = 0.0f;
 
-		const float side_size = 256.0f;
-		ColorResult result = castRay(start / side_size, direction, 1.5f * time, context);
+		ColorResult result = castRay(start, direction, 1.5f * time, context);
 
 		sf::Color old_color = render_image.getPixel(pixel.x, pixel.y);
 
@@ -125,9 +124,15 @@ struct RayCaster
 		context.complexity += intersection.complexity;
 		context.distance = intersection.distance;
 
-		const int32_t c = context.complexity;
-		sf::Color color(c, c, c);
-		result.color = color;
+		if (!intersection.hit) {
+			const int32_t c = context.complexity * 2;
+			sf::Color color(c, c, c);
+			result.color = color;
+		}
+		else {
+			result.color = sf::Color::Red;
+		}
+
 		return result;
 	}
 
@@ -151,31 +156,12 @@ struct RayCaster
 			}
 
 			HitPoint ao_point = svo.castRay(ao_start, glm::normalize(point.normal + noise_normal), max_iter);
-			if (!ao_point.cell) {
+			if (!ao_point.hit) {
 				acc += 1.0f;
 			}
 		}
 
 		return std::min(1.0f, acc / float(ray_count));
-	}
-
-	float getGodRaysIntensity(const glm::vec3& start, const glm::vec3& direction, const glm::vec3& stop, float step_size)
-	{
-		float light_intensity = 0.0f;
-		float distance = 0.0f;
-		glm::vec3 measure_start = start;
-		while (measure_start.x > 0.0f && measure_start.y > 0.0f && measure_start.z > 0.0f &&
-			   measure_start.x < 512.0f && measure_start.y < 512.0f && measure_start.z < 512.0f) {
-			
-			const glm::vec3 gr_direction = light_position - measure_start;
-			const HitPoint hp = svo.castRay(measure_start, gr_direction, 512U);
-			light_intensity += !hp.cell ? 0.1f * hp.complexity : 0.0f;
-
-			distance += step_size;
-			measure_start += direction * step_size;
-		}
-
-		return light_intensity;
 	}
 
 	void getGlobalIllumination(const HitPoint& point, RayContext& context, GIContribution& result)
@@ -223,7 +209,7 @@ struct RayCaster
 
 	const sf::Color getTextureColorFromHitPoint(const HitPoint& point)
 	{
-		if (point.cell->texture == Cell::Grass) {
+		/*if (point.cell->texture == Cell::Grass) {
 			return getColorFromVoxelCoord(getTextureFromNormal(point.normal), point.voxel_coord);
 		}
 		else if (point.cell->texture == Cell::Red) {
@@ -234,7 +220,7 @@ struct RayCaster
 		}
 		else {
 			return sf::Color::Magenta;
-		}
+		}*/
 	}
 
 	const sf::Color getColorFromVoxelCoord(const sf::Image& image, glm::vec2 coords)

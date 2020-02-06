@@ -87,7 +87,7 @@ public:
 	Node* m_root;
 
 private:
-	const uint32_t m_max_level = 8U;
+	const uint32_t m_max_level = 6U;
 
 	void rec_setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z, Node* node, uint32_t size)
 	{
@@ -116,7 +116,7 @@ private:
 
 	void fillHitResult(Ray& ray, const Node* node, const float t) const
 	{
-		HitPoint& point = ray.point;
+		/*HitPoint& point = ray.point;
 		const Cell& cell = node->cell;
 		const glm::vec3 hit = ray.start + t * ray.direction;
 
@@ -135,7 +135,7 @@ private:
 		else if (ray.hit_side == 2) {
 			point.normal = glm::vec3(0.0f, 0.0f, -ray.step.z);
 			point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.y));
-		}
+		}*/
 	}
 
 	void rec_castRay(Ray& ray, const glm::vec3& position, uint32_t cell_size, const Node* node, const uint32_t max_iter) const
@@ -165,7 +165,7 @@ private:
 					const glm::vec3 sub_position = (position + t_max_min * ray.direction) - cell_pos_i * float(cell_size);
 					ray.t_total = t_total + t_max_min;
 					rec_castRay(ray, sub_position, sub_size, sub_node, max_iter);
-					if (ray.point.cell) {
+					if (ray.point.hit) {
 						return;
 					}
 				}
