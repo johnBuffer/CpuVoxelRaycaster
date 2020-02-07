@@ -125,7 +125,7 @@ struct RayCaster
 		context.distance = intersection.distance;
 
 		if (!intersection.hit) {
-			const int32_t c = context.complexity * 2;
+			const int32_t c = context.complexity * 10;
 			sf::Color color(c, c, c);
 			result.color = color;
 		}

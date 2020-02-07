@@ -34,7 +34,6 @@ struct OctreeStack
 {
 	uint32_t parent_index;
 	float t_max;
-	bool valid;
 };
 
 

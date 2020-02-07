@@ -33,56 +33,55 @@ struct LSVO : public Volumetric
 	{
 		HitPoint result;
 		const LNode* raw_data = &(data[0]);
-		// Check octant mask and modify ray accordingly
 		glm::vec3 d = glm::normalize(direction);
+		// Initialize stack
+		OctreeStack stack[MAX_DEPTH+1];
+		// Check octant mask and modify ray accordingly
 		const float epsilon = 1.0f / std::pow(2.0f, 23);
 		if (std::abs(d.x) < epsilon) { d.x = copysign(epsilon, d.x); }
 		if (std::abs(d.y) < epsilon) { d.y = copysign(epsilon, d.y); }
 		if (std::abs(d.z) < epsilon) { d.z = copysign(epsilon, d.z); }
 
 		const glm::vec3 t_coef = 1.0f / -glm::abs(d);
-		glm::vec3 t_bias = (position + glm::vec3(0.0f)) * t_coef;
-		uint8_t octant_mask = 0u;
+		glm::vec3 t_bias = (position + glm::vec3(1.0f)) * t_coef;
+		uint8_t octant_mask = 7u;
 		if (d.x > 0.0f) { octant_mask ^= 1u; t_bias.x = 3.0f * t_coef.x - t_bias.x; }
 		if (d.y > 0.0f) { octant_mask ^= 2u; t_bias.y = 3.0f * t_coef.y - t_bias.y; }
 		if (d.z > 0.0f) { octant_mask ^= 4u; t_bias.z = 3.0f * t_coef.z - t_bias.z; }
-		// Initialize stack
-		OctreeStack stack[MAX_DEPTH+1];
-		int8_t scale = MAX_DEPTH - 1;
-		float scale_f = 0.5f;
 		// Initialize t_span
 		const glm::vec3 t0 = getT(glm::vec3(2.0f), t_coef, t_bias);
 		const glm::vec3 t1 = getT(glm::vec3(1.0f), t_coef, t_bias);
 		float t_min = std::max(t0.x, std::max(t0.y, t0.z));
 		float t_max = std::min(t1.x, std::min(t1.y, t1.z));
 		float h = t_max;
-		//t_min = std::max(0.0f, t_min);
-		//t_max = std::min(1.0f, t_max);
-		// Initialize child position
+		t_min = std::max(0.0f, t_min);
+		t_max = std::min(1.0f, t_max);
+		// Init current voxel
 		uint32_t parent_id = 0u;
 		uint8_t idx = 0u;
+		int8_t scale = MAX_DEPTH - 1;
 		glm::vec3 pos(1.0f);
+		float scale_f = 0.5f;
+		// Initialize child position
 		const glm::vec3 t_center = getT(glm::vec3(1.5f), t_coef, t_bias);
 		if (t_center.x > t_min) { idx ^= 1u, pos.x = 1.5f; }
 		if (t_center.y > t_min) { idx ^= 2u, pos.y = 1.5f; }
 		if (t_center.z > t_min) { idx ^= 4u, pos.z = 1.5f; }
-		std::cout << "START at " << (idx ^ octant_mask) << std::endl;
+		//std::cout << "START at " << (idx ^ octant_mask) << std::endl;
 		// Explore octree
 		while (scale < MAX_DEPTH) {
 			++result.complexity;
-
-			const uint8_t child_shift = idx ^ octant_mask;
-
-			std::string indent = "";
-			for (uint32_t i(0); i<MAX_DEPTH - scale; ++i) { indent += "  "; }
+			const LNode& parent_ref = raw_data[parent_id];
+			//std::string indent = "";
+			//for (uint32_t i(0); i<MAX_DEPTH - scale; ++i) { indent += "  "; }
 			// Compute new T span
 			const glm::vec3 t_corner = getT(pos, t_coef, t_bias);
 			const float tc_max = std::min(t_corner.x, std::min(t_corner.y, t_corner.z));
 			// Check if child exists here
-			const LNode& parent_ref = raw_data[parent_id];
+			const uint8_t child_shift = idx ^ octant_mask;
 			const uint8_t child_mask = parent_ref.child_mask >> child_shift;
 			if ((child_mask & 1u) && t_min <= t_max) {
-				const float tv_max = std::min(tc_max, t_max);
+				const float tv_max = std::min(t_max, tc_max);
 				const float half = scale_f * 0.5f;
 				const glm::vec3 t_half = half * t_coef + t_corner;
 				if (t_min <= tv_max) {
@@ -90,28 +89,24 @@ struct LSVO : public Volumetric
 					// We hit a leaf
 					if (leaf_mask & 1u) {
 						result.hit = 1u;
-						std::cout << indent << int32_t(scale) << " HIT at " << toString(position + t_min * direction) << std::endl;
+						//std::cout << indent << int32_t(scale) << " HIT at " << toString(position + t_min * direction) << std::endl;
 						break;
 					}
 					// Eventually add parent to the stack
 					if (tc_max < h) {
 						stack[scale].parent_index = parent_id;
 						stack[scale].t_max = t_max;
-						stack[scale].valid = true;
-					}
-					else {
-						stack[scale].valid = false;
 					}
 					h = tc_max;
 					// Update current voxel
 					parent_id += parent_ref.child_offset + child_shift;
-					--scale;
 					idx = 0u;
+					--scale;
 					scale_f = half;
 					if (t_half.x > t_min) { idx ^= 1u, pos.x += scale_f; }
 					if (t_half.y > t_min) { idx ^= 2u, pos.y += scale_f; }
 					if (t_half.z > t_min) { idx ^= 4u, pos.z += scale_f; }
-					std::cout << indent << int32_t(scale) << " PUSH, new child_id " << int32_t(child_shift) << std::endl;
+					//std::cout << indent << int32_t(scale) << " PUSH, new child_id " << int32_t(child_shift) << std::endl;
 					t_max = tv_max;
 					continue;
 				}
@@ -126,26 +121,30 @@ struct LSVO : public Volumetric
 			idx ^= step_mask;
 
 			if (idx & step_mask) {
-				++scale;
-				scale_f *= 2.0f;
-				while (!stack[scale].valid) { ++scale, scale_f *= 2.0f; }
+				uint32_t differing_bits = 0u;
+				if (step_mask & 1u) differing_bits |= (floatAsInt(pos.x) ^ floatAsInt(pos.x + scale_f));
+				if (step_mask & 2u) differing_bits |= (floatAsInt(pos.y) ^ floatAsInt(pos.y + scale_f));
+				if (step_mask & 4u) differing_bits |= (floatAsInt(pos.z) ^ floatAsInt(pos.z + scale_f));
+				scale = (floatAsInt((float)differing_bits) >> 23u) - 127u;
+				scale_f = intAsFloat((scale - MAX_DEPTH + 127u) << 23u);
+
 				OctreeStack entry = stack[scale];
 				parent_id = entry.parent_index;
 				t_max = entry.t_max;
 
-				uint32_t shx = floatAsInt(pos.x) >> scale;
-				uint32_t shy = floatAsInt(pos.y) >> scale;
-				uint32_t shz = floatAsInt(pos.z) >> scale;
+				const uint32_t shx = floatAsInt(pos.x) >> scale;
+				const uint32_t shy = floatAsInt(pos.y) >> scale;
+				const uint32_t shz = floatAsInt(pos.z) >> scale;
 				pos.x = intAsFloat(shx << scale);
 				pos.y = intAsFloat(shy << scale);
 				pos.z = intAsFloat(shz << scale);
 				idx = (shx & 1u) | ((shy & 1u) << 1u) | ((shz & 1u) << 2u);
 
 				h = 0.0f;
-				std::cout << indent << "POP, new scale " << int32_t(scale)  << std::endl;
+				//std::cout << indent << "POP, new scale " << int32_t(scale)  << std::endl;
 			}
 			else {
-				std::cout << indent << int32_t(scale) << " ADVANCE, new child_id " << int32_t(idx ^ octant_mask) << std::endl;
+				//std::cout << indent << int32_t(scale) << " ADVANCE, new child_id " << int32_t(idx ^ octant_mask) << std::endl;
 			}
 		}
 		
