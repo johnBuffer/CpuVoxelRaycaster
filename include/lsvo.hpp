@@ -31,6 +31,10 @@ struct LSVO : public Volumetric
 
 	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, const uint32_t max_iter) const
 	{
+		// Const values
+		constexpr uint8_t SVO_MAX_DEPTH = 23u;
+		constexpr uint8_t DEPTH_OFFSET = SVO_MAX_DEPTH - MAX_DEPTH;
+		const float SVO_SIZE = std::pow(2.0f, MAX_DEPTH);
 		HitPoint result;
 		const LNode* raw_data = &(data[0]);
 		glm::vec3 d = glm::normalize(direction);
@@ -41,7 +45,6 @@ struct LSVO : public Volumetric
 		if (std::abs(d.x) < epsilon) { d.x = copysign(epsilon, d.x); }
 		if (std::abs(d.y) < epsilon) { d.y = copysign(epsilon, d.y); }
 		if (std::abs(d.z) < epsilon) { d.z = copysign(epsilon, d.z); }
-
 		const glm::vec3 t_coef = 1.0f / -glm::abs(d);
 		glm::vec3 t_bias = (position + glm::vec3(1.0f)) * t_coef;
 		uint8_t octant_mask = 7u;
@@ -59,7 +62,7 @@ struct LSVO : public Volumetric
 		// Init current voxel
 		uint32_t parent_id = 0u;
 		uint8_t idx = 0u;
-		int8_t scale = MAX_DEPTH - 1;
+		int8_t scale = SVO_MAX_DEPTH - 1U;
 		glm::vec3 pos(1.0f);
 		float scale_f = 0.5f;
 		// Initialize child position
@@ -67,13 +70,10 @@ struct LSVO : public Volumetric
 		if (t_center.x > t_min) { idx ^= 1u, pos.x = 1.5f; }
 		if (t_center.y > t_min) { idx ^= 2u, pos.y = 1.5f; }
 		if (t_center.z > t_min) { idx ^= 4u, pos.z = 1.5f; }
-		//std::cout << int(scale) << " START at " << (idx ^ octant_mask) << std::endl;
 		// Explore octree
-		while (scale < MAX_DEPTH) {
+		while (scale < SVO_MAX_DEPTH && scale > MAX_DEPTH) {
 			++result.complexity;
 			const LNode& parent_ref = raw_data[parent_id];
-			//std::string indent = "";
-			//for (uint32_t i(0); i<MAX_DEPTH - scale; ++i) { indent += "  "; }
 			// Compute new T span
 			const glm::vec3 t_corner = getT(pos, t_coef, t_bias);
 			const float tc_max = std::min(t_corner.x, std::min(t_corner.y, t_corner.z));
@@ -82,10 +82,10 @@ struct LSVO : public Volumetric
 			const uint8_t child_mask = parent_ref.child_mask >> child_shift;
 			if ((child_mask & 1u) && t_min <= t_max) {
 
-				const float ray_size_coef = 0.005f;
-				const float ray_size_bias = 0.0005f;
+				constexpr float ray_size_coef = 0.0078125f;
+				constexpr float ray_size_bias = 0.000030517578125f * 2.0f;
 				if (tc_max * ray_size_coef + ray_size_bias >= scale_f) {
-					result.hit = 1u;
+					result.cell = cell;
 					break;
 				}
 
@@ -96,14 +96,13 @@ struct LSVO : public Volumetric
 					const uint8_t leaf_mask = parent_ref.leaf_mask >> child_shift;
 					// We hit a leaf
 					if (leaf_mask & 1u) {
-						result.hit = 1u;
-						//std::cout << indent << int32_t(scale) << " HIT at " << toString(position + t_min * direction) << std::endl;
+						result.cell = cell;
 						break;
 					}
 					// Eventually add parent to the stack
 					if (tc_max < h) {
-						stack[scale].parent_index = parent_id;
-						stack[scale].t_max = t_max;
+						stack[scale - DEPTH_OFFSET].parent_index = parent_id;
+						stack[scale - DEPTH_OFFSET].t_max = t_max;
 					}
 					h = tc_max;
 					// Update current voxel
@@ -114,7 +113,6 @@ struct LSVO : public Volumetric
 					if (t_half.x > t_min) { idx ^= 1u, pos.x += scale_f; }
 					if (t_half.y > t_min) { idx ^= 2u, pos.y += scale_f; }
 					if (t_half.z > t_min) { idx ^= 4u, pos.z += scale_f; }
-					//std::cout << indent << int32_t(scale+1) << " PUSH, new child_id " << int32_t(idx ^ octant_mask) << std::endl;
 					t_max = tv_max;
 					continue;
 				}
@@ -136,9 +134,9 @@ struct LSVO : public Volumetric
 				if (step_mask & 4u) differing_bits |= (floatAsInt(pos.z) ^ floatAsInt(pos.z + scale_f));
 
 				scale = (floatAsInt((float)differing_bits) >> 23u) - 127u;
-				scale_f = intAsFloat((scale - MAX_DEPTH + 127u) << 23u);
+				scale_f = intAsFloat((scale - 23u + 127u) << 23u);
 
-				OctreeStack entry = stack[scale];
+				OctreeStack entry = stack[scale - DEPTH_OFFSET];
 				parent_id = entry.parent_index;
 				t_max = entry.t_max;
 
@@ -149,20 +147,22 @@ struct LSVO : public Volumetric
 				pos.y = intAsFloat(shy << scale);
 				pos.z = intAsFloat(shz << scale);
 				idx = (shx & 1u) | ((shy & 1u) << 1u) | ((shz & 1u) << 2u);
-
 				h = 0.0f;
-				//std::cout << indent << "POP, new scale " << int32_t(scale)  << std::endl;
-			}
-			else {
-				//std::cout << indent << int32_t(scale) << " ADVANCE, new child_id " << int32_t(idx ^ octant_mask) << std::endl;
 			}
 		}
 		
 		if (scale >= MAX_DEPTH) {
-			result.hit = 2;
+			//result.hit = 0u;
 		}
 
+		if ((octant_mask & 1) == 0) pos.x = 3.0f - scale_f - pos.x;
+		if ((octant_mask & 2) == 0) pos.y = 3.0f - scale_f - pos.y;
+		if ((octant_mask & 4) == 0) pos.z = 3.0f - scale_f - pos.z;
+
 		result.distance = t_min;
+		result.position.x = std::min(std::max(position.x + t_min * d.x, pos.x + epsilon), pos.x + scale_f - epsilon);
+		result.position.y = std::min(std::max(position.y + t_min * d.y, pos.y + epsilon), pos.y + scale_f - epsilon);
+		result.position.z = std::min(std::max(position.z + t_min * d.z, pos.z + epsilon), pos.z + scale_f - epsilon);
 		return result;
 	}
 

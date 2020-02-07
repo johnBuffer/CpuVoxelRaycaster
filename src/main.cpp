@@ -37,8 +37,6 @@ int32_t main()
 	bloom_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
 	render_tex.setSmooth(false);
 
-	float movement_speed = 2.5f;
-
 	const float body_radius = 0.4f;
 
 	constexpr int32_t size = 512;
@@ -69,22 +67,24 @@ int32_t main()
 
 			//volume_raw->setCell(Cell::Mirror, Cell::None, x, grid_size_y - 1, z);
 			//volume.setCell(Cell::Solid, Cell::Grass, x, 0, z);
-			const float offset = std::pow(2.0f, 23);
 			for (int y(1); y < std::min(max_height, height); ++y) {
-				volume_raw->setCell(Cell::Solid, Cell::Grass, x, 1024 - grid_size_y + y, z);
+				volume_raw->setCell(Cell::Solid, Cell::Grass, x, y, z);
 			}
 		}
 	}
 
-	volume_raw->setCell(Cell::Solid, Cell::Grass, 0, 0, 0);
-	volume_raw->setCell(Cell::Solid, Cell::Grass, 0, 7, 0);
+	//volume_raw->setCell(Cell::Solid, Cell::Grass, 511, 511, 511);
+	//volume_raw->setCell(Cell::Solid, Cell::Grass, 0, 7, 0);
 	//volume_raw->setCell(Cell::Solid, Cell::Grass, 10, 63, 63);
 
-	constexpr uint8_t svo_depth = 23u;
+	constexpr uint8_t svo_depth = 9u;
 	const float side_size = std::pow(2.0f, float(svo_depth));
 	const float scale = 1.0f / side_size;
 	LSVO<svo_depth> lsvo(*volume_raw);
 	//print(lsvo);
+
+	//lsvo.castRay(camera.position * scale, glm::normalize(glm::vec3(0, 7, 0) - camera.position), 1024);
+	//return 0;
 
 	delete volume_raw;
 
@@ -120,7 +120,8 @@ int32_t main()
 
 		event_manager.processEvents(controller, camera, raycaster);
 
-		const glm::vec3 light_position = glm::vec3(100, -1000, 30);
+		//const glm::vec3 light_position = glm::vec3(256 + 256 * cos(time), 256, 256 + 256 * sin(time));
+		const glm::vec3 light_position = glm::vec3(500, 400, 200);
 		raycaster.setLightPosition(light_position);
 
 		sf::Clock render_clock;

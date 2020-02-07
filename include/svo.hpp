@@ -87,7 +87,7 @@ public:
 	Node* m_root;
 
 private:
-	const uint32_t m_max_level = 10U;
+	const uint32_t m_max_level = 9U;
 
 	void rec_setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z, Node* node, uint32_t size)
 	{
@@ -165,7 +165,7 @@ private:
 					const glm::vec3 sub_position = (position + t_max_min * ray.direction) - cell_pos_i * float(cell_size);
 					ray.t_total = t_total + t_max_min;
 					rec_castRay(ray, sub_position, sub_size, sub_node, max_iter);
-					if (ray.point.hit) {
+					if (ray.point.cell) {
 						return;
 					}
 				}

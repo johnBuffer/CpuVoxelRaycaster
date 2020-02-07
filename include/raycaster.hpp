@@ -2,7 +2,7 @@
 
 
 #include <SFML/Graphics.hpp>
-#include "LSVO.hpp"
+#include "lsvo.hpp"
 #include "utils.hpp"
 
 
@@ -44,7 +44,7 @@ struct RayCaster
 {
 	const float eps = 0.001f;
 
-	RayCaster(const Volumetric& svo_, const sf::Vector2i& render_size_)
+	RayCaster(const LSVO<9>& svo_, const sf::Vector2i& render_size_)
 		: svo(svo_)
 		, render_size(render_size_)
 	{
@@ -120,18 +120,64 @@ struct RayCaster
 		if (context.bounds > max_bounds)
 			return result;
 
-		const HitPoint intersection = svo.castRay(start, direction, 1024);
+		const HitPoint intersection = svo.castRay(start, direction, 512U);
 		context.complexity += intersection.complexity;
+		context.distance = intersection.distance;
 
-		if (!intersection.hit) {
-			/*const int32_t c = context.complexity * 10;
-			sf::Color color(c, c, c);
-			result.color = color;*/
-		}
-		else {
-			result.color = getColorFromNormal(intersection.getNormal());
+		if (intersection.cell) {
+			const glm::vec3 normal = intersection.getNormal();
+			//result.color = sf::Color::Red;
+			result.distance = intersection.distance;
+			const Cell& cell = *(intersection.cell);
+			const glm::vec3 hit_position = intersection.position + eps * intersection.normal;
+
+			sf::Color hit_texture_color = sf::Color::Black;
+			if (cell.type == Cell::Solid) {
+				hit_texture_color = getColorFromNormal(normal);// getTextureColorFromHitPoint(intersection);
+				result.color = hit_texture_color;
+				if (use_ao) {
+					mult(result.color, getAmbientOcclusion(intersection));
+				}
+			}
+			else if (cell.type == Cell::Mirror) {
+				const float roughness = 0.04f;
+				const glm::vec3 normal = glm::normalize(normal + glm::vec3(roughness * getRand(), 0.0f, roughness * getRand()));
+				context.bounds++;
+				result = castRay(hit_position, glm::reflect(direction, normal), time, context);
+				mult(result.color, 0.8f);
+			}
+
+			const uint32_t shadow_sample = use_samples ? 4U : 1U;
+
+			if (cell.texture != Cell::Red) {
+				float light_intensity = 0.0f;
+				for (uint32_t i(shadow_sample); i--;) {
+					const glm::vec3 light_point = light_position + glm::vec3(getRand(-25.0f, 25.0f), getRand(-25.0f, 25.0f), 0.0f);
+					const glm::vec3 point_to_light = glm::normalize(light_point - intersection.position);
+					const HitPoint light_intersection = svo.castRay(hit_position, point_to_light, 128U);
+
+					if (!light_intersection.cell) {
+						light_intensity += std::max(0.0f, glm::dot(point_to_light, normal));
+					}
+				}
+
+				mult(result.color, std::max(0.5f, (light_intensity) / float(shadow_sample)));
+			}
+
+			if (use_gi && context.gi_bounce) {
+				--context.gi_bounce;
+				GIContribution gic;
+				getGlobalIllumination(intersection, context, gic);
+				const sf::Color gi_color(gic.r, gic.g, gic.b);
+				sf::Color obj_color = hit_texture_color;
+				mult(obj_color, gi_color);
+				add(result.color, obj_color);
+			}
 		}
 
+		/*const int32_t c = context.complexity;
+		sf::Color color(c, c, c);
+		result.color = color;*/
 		return result;
 	}
 
@@ -156,12 +202,31 @@ struct RayCaster
 			}
 
 			HitPoint ao_point = svo.castRay(ao_start, glm::normalize(normal + noise_normal), max_iter);
-			if (!ao_point.hit) {
+			if (!ao_point.cell) {
 				acc += 1.0f;
 			}
 		}
 
 		return std::min(1.0f, acc / float(ray_count));
+	}
+
+	float getGodRaysIntensity(const glm::vec3& start, const glm::vec3& direction, const glm::vec3& stop, float step_size)
+	{
+		float light_intensity = 0.0f;
+		float distance = 0.0f;
+		glm::vec3 measure_start = start;
+		while (measure_start.x > 0.0f && measure_start.y > 0.0f && measure_start.z > 0.0f &&
+			measure_start.x < 512.0f && measure_start.y < 512.0f && measure_start.z < 512.0f) {
+
+			const glm::vec3 gr_direction = light_position - measure_start;
+			const HitPoint hp = svo.castRay(measure_start, gr_direction, 512U);
+			light_intensity += !hp.cell ? 0.1f * hp.complexity : 0.0f;
+
+			distance += step_size;
+			measure_start += direction * step_size;
+		}
+
+		return light_intensity;
 	}
 
 	void getGlobalIllumination(const HitPoint& point, RayContext& context, GIContribution& result)
@@ -172,7 +237,6 @@ struct RayCaster
 		float acc = 0.0f;
 		uint32_t valid_rays = ray_count;
 		const glm::vec3 normal = point.getNormal();
-
 		for (uint32_t i(ray_count); i--;) {
 			glm::vec3 noise_normal = glm::vec3();
 
@@ -186,7 +250,8 @@ struct RayCaster
 				result.r += coef * ray_result.color.r;
 				result.g += coef * ray_result.color.g;
 				result.b += coef * ray_result.color.b;
-			} else {
+			}
+			else {
 				--valid_rays;
 			}
 		}
@@ -211,8 +276,8 @@ struct RayCaster
 
 	const sf::Color getTextureColorFromHitPoint(const HitPoint& point)
 	{
-		/*if (point.cell->texture == Cell::Grass) {
-			return getColorFromVoxelCoord(getTextureFromNormal(point.normal), point.voxel_coord);
+		if (point.cell->texture == Cell::Grass) {
+			return getColorFromVoxelCoord(getTextureFromNormal(point.getNormal()), point.voxel_coord);
 		}
 		else if (point.cell->texture == Cell::Red) {
 			return sf::Color::Red;
@@ -222,7 +287,7 @@ struct RayCaster
 		}
 		else {
 			return sf::Color::Magenta;
-		}*/
+		}
 	}
 
 	const sf::Color getColorFromVoxelCoord(const sf::Image& image, glm::vec2 coords)
@@ -233,17 +298,13 @@ struct RayCaster
 		return image.getPixel(uint32_t(tex_size.x * coords.x), uint32_t(tex_size.y * coords.y));
 	}
 
+
 	const sf::Color getColorFromNormal(const glm::vec3& normal)
 	{
-		if (normal.x) {
-			return sf::Color::Red;
+		if (normal.x || normal.z) {
+			return sf::Color(94, 61, 27);
 		}
-		else if (normal.y) {
-			return sf::Color::Green;
-
-		}
-		
-		return sf::Color::Blue;
+		return sf::Color(47, 89, 10);
 	}
 
 	std::vector<std::vector<Sample>> colors;
@@ -252,7 +313,7 @@ struct RayCaster
 	sf::Image image_side;
 	sf::Image image_top;
 
-	const Volumetric& svo;
+	const LSVO<9>& svo;
 
 	const sf::Vector2i render_size;
 

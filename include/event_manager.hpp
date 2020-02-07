@@ -59,10 +59,10 @@ struct EventManager
 				case sf::Keyboard::Down:
 					break;
 				case sf::Keyboard::Right:
-					camera.aperture += 0.1f;
+					camera.aperture += 0.001f;
 					break;
 				case sf::Keyboard::Left:
-					camera.aperture -= 0.1f;
+					camera.aperture -= 0.001f;
 					if (camera.aperture < 0.0f) {
 						camera.aperture = 0.0f;
 					}
