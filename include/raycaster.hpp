@@ -129,7 +129,7 @@ struct RayCaster
 			result.color = color;*/
 		}
 		else {
-			result.color = getColorFromNormal(intersection.normal);
+			result.color = getColorFromNormal(intersection.getNormal());
 		}
 
 		return result;
@@ -141,20 +141,21 @@ struct RayCaster
 		const uint32_t max_iter = 16U;
 		const glm::vec3 ao_start = point.position + point.normal * eps;
 		float acc = 0.0f;
+		const glm::vec3 normal = point.getNormal();
 		for (uint32_t i(ray_count); i--;) {
 			glm::vec3 noise_normal = glm::vec3();
 
-			if (point.normal.x) {
+			if (normal.x) {
 				noise_normal = glm::vec3(0.0f, getRand(-1.0f, 1.0f), getRand(-1.0f, 1.0f));
 			}
-			else if (point.normal.y) {
+			else if (normal.y) {
 				noise_normal = glm::vec3(getRand(-1.0f, 1.0f), 0.0f, getRand(-1.0f, 1.0f));
 			}
-			else if (point.normal.z) {
+			else if (normal.z) {
 				noise_normal = glm::vec3(getRand(-1.0f, 1.0f), getRand(-1.0f, 1.0f), 0.0f);
 			}
 
-			HitPoint ao_point = svo.castRay(ao_start, glm::normalize(point.normal + noise_normal), max_iter);
+			HitPoint ao_point = svo.castRay(ao_start, glm::normalize(normal + noise_normal), max_iter);
 			if (!ao_point.hit) {
 				acc += 1.0f;
 			}
@@ -170,15 +171,17 @@ struct RayCaster
 		const glm::vec3 gi_start = point.position + point.normal * eps;
 		float acc = 0.0f;
 		uint32_t valid_rays = ray_count;
+		const glm::vec3 normal = point.getNormal();
+
 		for (uint32_t i(ray_count); i--;) {
 			glm::vec3 noise_normal = glm::vec3();
 
 			noise_normal = glm::vec3(getRand(-1.0f, 1.0f), getRand(-1.0f, 1.0f), getRand(-1.0f, 1.0f));
 
-			const glm::vec3 gi_vec = glm::normalize(point.normal + noise_normal);
+			const glm::vec3 gi_vec = glm::normalize(normal + noise_normal);
 			const float coef = 8.0f;
-			if (glm::dot(point.normal, gi_vec) > 0.0f) {
-				const ColorResult ray_result = castRay(gi_start, glm::normalize(point.normal + noise_normal), max_iter, context);
+			if (glm::dot(normal, gi_vec) > 0.0f) {
+				const ColorResult ray_result = castRay(gi_start, glm::normalize(normal + noise_normal), max_iter, context);
 
 				result.r += coef * ray_result.color.r;
 				result.g += coef * ray_result.color.g;

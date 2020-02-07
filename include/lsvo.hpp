@@ -81,6 +81,14 @@ struct LSVO : public Volumetric
 			const uint8_t child_shift = idx ^ octant_mask;
 			const uint8_t child_mask = parent_ref.child_mask >> child_shift;
 			if ((child_mask & 1u) && t_min <= t_max) {
+
+				const float ray_size_coef = 0.005f;
+				const float ray_size_bias = 0.0005f;
+				if (tc_max * ray_size_coef + ray_size_bias >= scale_f) {
+					result.hit = 1u;
+					break;
+				}
+
 				const float tv_max = std::min(t_max, tc_max);
 				const float half = scale_f * 0.5f;
 				const glm::vec3 t_half = half * t_coef + t_corner;
@@ -119,9 +127,7 @@ struct LSVO : public Volumetric
 
 			t_min = tc_max;
 			idx ^= step_mask;
-			result.normal.x = step_mask & 1u;
-			result.normal.y = step_mask & 2u;
-			result.normal.z = step_mask & 4u;
+			result.normal = step_mask;
 
 			if (idx & step_mask) {
 				uint32_t differing_bits = 0u;

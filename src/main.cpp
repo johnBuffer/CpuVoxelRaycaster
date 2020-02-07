@@ -41,7 +41,7 @@ int32_t main()
 
 	const float body_radius = 0.4f;
 
-	constexpr int32_t size = 1024;
+	constexpr int32_t size = 512;
 	constexpr int32_t grid_size_x = size;
 	constexpr int32_t grid_size_y = size;
 	constexpr int32_t grid_size_z = size;
@@ -65,13 +65,13 @@ int32_t main()
 			float amp_x = x - grid_size_x * 0.5f;
 			float amp_z = z - grid_size_z * 0.5f;
 			float ratio = std::pow(1.0f - sqrt(amp_x * amp_x + amp_z * amp_z) / (10.0f * grid_size_x), 256.0f);
-			int32_t height = int32_t(16.0f * myNoise.GetNoise(float(0.75f * x), float(0.75f * z)) + 32);
+			int32_t height = int32_t(92.0f * myNoise.GetNoise(float(0.75f * x), float(0.75f * z)) + 32);
 
 			//volume_raw->setCell(Cell::Mirror, Cell::None, x, grid_size_y - 1, z);
 			//volume.setCell(Cell::Solid, Cell::Grass, x, 0, z);
 			const float offset = std::pow(2.0f, 23);
 			for (int y(1); y < std::min(max_height, height); ++y) {
-				volume_raw->setCell(Cell::Solid, Cell::Grass, x, y, z);
+				volume_raw->setCell(Cell::Solid, Cell::Grass, x, 1024 - grid_size_y + y, z);
 			}
 		}
 	}

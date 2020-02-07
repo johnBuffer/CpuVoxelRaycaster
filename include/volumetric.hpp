@@ -11,8 +11,13 @@ struct HitPoint
 		, complexity(0u)
 	{}
 
+	const glm::vec3 getNormal() const
+	{
+		return glm::vec3(normal & 1u, normal & 2u, normal & 4u);
+	}
+
 	glm::vec3 position;
-	glm::vec3 normal;
+	uint8_t normal;
 	glm::vec2 voxel_coord;
 
 	uint8_t hit;
