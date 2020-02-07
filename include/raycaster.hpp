@@ -120,16 +120,19 @@ struct RayCaster
 		if (context.bounds > max_bounds)
 			return result;
 
-		const HitPoint intersection = svo.castRay(start, direction, 512U);
+		const HitPoint intersection = svo.castRay(start, direction, 1024);
 		context.complexity += intersection.complexity;
 		context.distance = intersection.distance;
 
-		if (!intersection.hit) {
+		if (!intersection.hit || 1) {
 			const int32_t c = context.complexity * 10;
 			sf::Color color(c, c, c);
 			result.color = color;
 		}
-		else {
+		else if (intersection.hit == 2u) {
+			//result.color = sf::Color::Green;
+		}
+		else if (intersection.hit == 1u) {
 			result.color = sf::Color::Red;
 		}
 

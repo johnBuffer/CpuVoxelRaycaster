@@ -7,15 +7,15 @@
 struct HitPoint
 {
 	HitPoint()
-		: hit(false)
-		, complexity(0)
+		: hit(0u)
+		, complexity(0u)
 	{}
 
 	glm::vec3 position;
 	glm::vec3 normal;
 	glm::vec2 voxel_coord;
 
-	bool hit;
+	uint8_t hit;
 	float distance;
 
 	uint32_t complexity;

@@ -15,6 +15,7 @@
 #include "replay.hpp"
 #include "event_manager.hpp"
 #include "lsvo.hpp"
+#include "lsvo_debug.hpp"
 
 
 int32_t main()
@@ -25,7 +26,7 @@ int32_t main()
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
 	window.setMouseCursorVisible(false);
 
-	constexpr float render_scale = 0.8f;
+	constexpr float render_scale = 0.2f;
 	constexpr uint32_t RENDER_WIDTH = uint32_t(win_width  * render_scale);
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
@@ -40,7 +41,7 @@ int32_t main()
 
 	const float body_radius = 0.4f;
 
-	constexpr int32_t size = 8;
+	constexpr int32_t size = 256;
 	constexpr int32_t grid_size_x = size;
 	constexpr int32_t grid_size_y = size;
 	constexpr int32_t grid_size_z = size;
@@ -48,7 +49,7 @@ int32_t main()
 	Volume* volume_raw = new Volume();
 
 	Camera camera;
-	camera.position = glm::vec3(1, 1, 1);
+	camera.position = glm::vec3(6.59589, 3.9688, 5.10499);
 	camera.view_angle = glm::vec2(0.0f);
 	camera.fov = 1.0f;
 
@@ -56,7 +57,7 @@ int32_t main()
 
 	EventManager event_manager(window);
 
-	/*FastNoise myNoise;
+	FastNoise myNoise;
 	myNoise.SetNoiseType(FastNoise::SimplexFractal);
 	for (uint32_t x = 0; x < grid_size_x; x++) {
 		for (uint32_t z = 0; z < grid_size_z; z++) {
@@ -73,23 +74,28 @@ int32_t main()
 				volume_raw->setCell(Cell::Solid, Cell::Grass, x, y, z);
 			}
 		}
-	}*/
+	}
 
 	volume_raw->setCell(Cell::Solid, Cell::Grass, 0, 0, 0);
 	volume_raw->setCell(Cell::Solid, Cell::Grass, 0, 7, 0);
 	//volume_raw->setCell(Cell::Solid, Cell::Grass, 10, 63, 63);
 
-	constexpr uint8_t svo_depth = 3u;
+	constexpr uint8_t svo_depth = 23u;
 	const float side_size = std::pow(2.0f, float(svo_depth));
 	const float scale = 1.0f / side_size;
 	LSVO<svo_depth> lsvo(*volume_raw);
-	//lsvo.print();
+	//print(lsvo);
+	std::cout << std::endl;
+
+	auto r = lsvo.castRay(camera.position * scale, glm::normalize(glm::vec3(0, 7, 0) - camera.position), 1024);
+	std::cout << int(r.hit) << std::endl;
+	//return 0;
 
 	delete volume_raw;
 
 	RayCaster raycaster(lsvo, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
 
-	const uint32_t thread_count = 16U;
+	const uint32_t thread_count = 1U;
 	const uint32_t area_count = uint32_t(sqrt(thread_count));
 	swrm::Swarm swarm(thread_count);
 
@@ -115,6 +121,7 @@ int32_t main()
 		}
 
 		//camera.setViewAngle(glm::vec2(0.845f, -0.625f));
+		//std::cout << camera.position.x << " " << camera.position.y << " " << camera.position.z << std::endl;
 
 		event_manager.processEvents(controller, camera, raycaster);
 

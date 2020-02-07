@@ -67,7 +67,7 @@ struct LSVO : public Volumetric
 		if (t_center.x > t_min) { idx ^= 1u, pos.x = 1.5f; }
 		if (t_center.y > t_min) { idx ^= 2u, pos.y = 1.5f; }
 		if (t_center.z > t_min) { idx ^= 4u, pos.z = 1.5f; }
-		//std::cout << "START at " << (idx ^ octant_mask) << std::endl;
+		//std::cout << int(scale) << " START at " << (idx ^ octant_mask) << std::endl;
 		// Explore octree
 		while (scale < MAX_DEPTH) {
 			++result.complexity;
@@ -106,7 +106,7 @@ struct LSVO : public Volumetric
 					if (t_half.x > t_min) { idx ^= 1u, pos.x += scale_f; }
 					if (t_half.y > t_min) { idx ^= 2u, pos.y += scale_f; }
 					if (t_half.z > t_min) { idx ^= 4u, pos.z += scale_f; }
-					//std::cout << indent << int32_t(scale) << " PUSH, new child_id " << int32_t(child_shift) << std::endl;
+					//std::cout << indent << int32_t(scale+1) << " PUSH, new child_id " << int32_t(idx ^ octant_mask) << std::endl;
 					t_max = tv_max;
 					continue;
 				}
@@ -148,6 +148,10 @@ struct LSVO : public Volumetric
 			}
 		}
 		
+		if (scale >= MAX_DEPTH) {
+			result.hit = 2;
+		}
+
 		result.distance = t_min;
 		return result;
 	}
