@@ -122,18 +122,14 @@ struct RayCaster
 
 		const HitPoint intersection = svo.castRay(start, direction, 1024);
 		context.complexity += intersection.complexity;
-		context.distance = intersection.distance;
 
-		if (!intersection.hit || 1) {
-			const int32_t c = context.complexity * 10;
+		if (!intersection.hit) {
+			/*const int32_t c = context.complexity * 10;
 			sf::Color color(c, c, c);
-			result.color = color;
+			result.color = color;*/
 		}
-		else if (intersection.hit == 2u) {
-			//result.color = sf::Color::Green;
-		}
-		else if (intersection.hit == 1u) {
-			result.color = sf::Color::Red;
+		else {
+			result.color = getColorFromNormal(intersection.normal);
 		}
 
 		return result;
@@ -236,10 +232,15 @@ struct RayCaster
 
 	const sf::Color getColorFromNormal(const glm::vec3& normal)
 	{
-		if (normal.x || normal.z) {
-			return sf::Color(94, 61, 27);
+		if (normal.x) {
+			return sf::Color::Red;
 		}
-		return sf::Color(47, 89, 10);
+		else if (normal.y) {
+			return sf::Color::Green;
+
+		}
+		
+		return sf::Color::Blue;
 	}
 
 	std::vector<std::vector<Sample>> colors;

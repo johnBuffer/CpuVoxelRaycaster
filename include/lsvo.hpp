@@ -119,12 +119,16 @@ struct LSVO : public Volumetric
 
 			t_min = tc_max;
 			idx ^= step_mask;
+			result.normal.x = step_mask & 1u;
+			result.normal.y = step_mask & 2u;
+			result.normal.z = step_mask & 4u;
 
 			if (idx & step_mask) {
 				uint32_t differing_bits = 0u;
 				if (step_mask & 1u) differing_bits |= (floatAsInt(pos.x) ^ floatAsInt(pos.x + scale_f));
 				if (step_mask & 2u) differing_bits |= (floatAsInt(pos.y) ^ floatAsInt(pos.y + scale_f));
 				if (step_mask & 4u) differing_bits |= (floatAsInt(pos.z) ^ floatAsInt(pos.z + scale_f));
+
 				scale = (floatAsInt((float)differing_bits) >> 23u) - 127u;
 				scale_f = intAsFloat((scale - MAX_DEPTH + 127u) << 23u);
 

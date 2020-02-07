@@ -20,13 +20,13 @@
 
 int32_t main()
 {
-	constexpr uint32_t win_width = 1600;
-	constexpr uint32_t win_height = 900;
+	constexpr uint32_t win_width = 1280;
+	constexpr uint32_t win_height = 720;
 
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
 	window.setMouseCursorVisible(false);
 
-	constexpr float render_scale = 0.2f;
+	constexpr float render_scale = 0.5f;
 	constexpr uint32_t RENDER_WIDTH = uint32_t(win_width  * render_scale);
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
@@ -41,7 +41,7 @@ int32_t main()
 
 	const float body_radius = 0.4f;
 
-	constexpr int32_t size = 256;
+	constexpr int32_t size = 1024;
 	constexpr int32_t grid_size_x = size;
 	constexpr int32_t grid_size_y = size;
 	constexpr int32_t grid_size_z = size;
@@ -69,7 +69,7 @@ int32_t main()
 
 			//volume_raw->setCell(Cell::Mirror, Cell::None, x, grid_size_y - 1, z);
 			//volume.setCell(Cell::Solid, Cell::Grass, x, 0, z);
-
+			const float offset = std::pow(2.0f, 23);
 			for (int y(1); y < std::min(max_height, height); ++y) {
 				volume_raw->setCell(Cell::Solid, Cell::Grass, x, y, z);
 			}
@@ -85,17 +85,12 @@ int32_t main()
 	const float scale = 1.0f / side_size;
 	LSVO<svo_depth> lsvo(*volume_raw);
 	//print(lsvo);
-	std::cout << std::endl;
-
-	auto r = lsvo.castRay(camera.position * scale, glm::normalize(glm::vec3(0, 7, 0) - camera.position), 1024);
-	std::cout << int(r.hit) << std::endl;
-	//return 0;
 
 	delete volume_raw;
 
 	RayCaster raycaster(lsvo, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
 
-	const uint32_t thread_count = 1U;
+	const uint32_t thread_count = 16U;
 	const uint32_t area_count = uint32_t(sqrt(thread_count));
 	swrm::Swarm swarm(thread_count);
 
