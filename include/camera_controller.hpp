@@ -18,6 +18,7 @@ struct Camera
 	glm::vec3 position;
 	glm::vec2 view_angle;
 	glm::vec3 camera_vec;
+	glm::mat3 rot_mat;
 
 	float aperture = 0.0f;
 	float focal_length = 1.0f;
@@ -26,6 +27,7 @@ struct Camera
 	void setViewAngle(const glm::vec2& angle)
 	{
 		view_angle = angle;
+		rot_mat = generateRotationMatrix(view_angle);
 		camera_vec = viewToWorld(glm::vec3(0.0f, 0.0f, 1.0f));
 	}
 
@@ -38,7 +40,6 @@ struct Camera
 		const glm::vec3 new_camera_origin = rand_vec;
 		const glm::vec3 ray = glm::normalize(focal_point - new_camera_origin);
 
-		// This could be optimized using matrix
 		CameraRay result;
 		result.ray = viewToWorld(ray);
 		result.world_rand_offset = viewToWorld(rand_vec);
@@ -48,8 +49,7 @@ struct Camera
 
 	glm::vec3 viewToWorld(const glm::vec3& v) const
 	{
-		glm::vec3 result = glm::rotate(v, view_angle.y, glm::vec3(1.0f, 0.0f, 0.0f));
-		return glm::rotate(result, view_angle.x, glm::vec3(0.0f, 1.0f, 0.0f));
+		return v * rot_mat;
 	}
 
 	HitPoint getClosestPoint(const Volumetric& volume) const
@@ -70,4 +70,6 @@ struct CameraController
 	}
 
 	virtual void move(const glm::vec3& move_vector, Camera& camera) = 0;
+
+	float movement_speed = 2.0f;
 };

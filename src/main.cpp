@@ -13,17 +13,21 @@
 #include "raycaster.hpp"
 #include "fly_controller.hpp"
 #include "replay.hpp"
+#include "event_manager.hpp"
+#include "lsvo.hpp"
+#include "lsvo_debug.hpp"
 
 
 int32_t main()
 {
-	constexpr uint32_t win_width = 1600;
-	constexpr uint32_t win_height = 900;
+	constexpr uint32_t win_width = 1280;
+	constexpr uint32_t win_height = 720;
 
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
-	window.setMouseCursorVisible(false);
+	window.setMouseCursorVisible(true);
+	//window.setFramerateLimit(40);
 
-	constexpr float render_scale = 0.4f;
+	constexpr float render_scale = 0.5f;
 	constexpr uint32_t RENDER_WIDTH = uint32_t(win_width  * render_scale);
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
@@ -34,26 +38,24 @@ int32_t main()
 	bloom_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
 	render_tex.setSmooth(false);
 
-	float movement_speed = 2.5f;
-
 	const float body_radius = 0.4f;
 
-	const glm::vec3 camera_origin(0.0f, 0.0f, 0.0f);
-
-	constexpr int32_t size = 512;
+	constexpr uint8_t max_depth = 9;
+	constexpr int32_t size = 1 << max_depth;
 	constexpr int32_t grid_size_x = size;
-	constexpr int32_t grid_size_y = size / 2;
+	constexpr int32_t grid_size_y = size;
 	constexpr int32_t grid_size_z = size;
-	using Volume = SVO;
+	using Volume = SVO<max_depth>;
 	Volume* volume_raw = new Volume();
-	Volume& volume = *volume_raw;
 
 	Camera camera;
-	camera.position = glm::vec3(256, 200, 256);
+	camera.position = glm::vec3(256, 200, 256);;
 	camera.view_angle = glm::vec2(0.0f);
 	camera.fov = 1.0f;
 
 	FlyController controller;
+
+	EventManager event_manager(window);
 
 	FastNoise myNoise;
 	myNoise.SetNoiseType(FastNoise::SimplexFractal);
@@ -65,16 +67,32 @@ int32_t main()
 			float ratio = std::pow(1.0f - sqrt(amp_x * amp_x + amp_z * amp_z) / (10.0f * grid_size_x), 256.0f);
 			int32_t height = int32_t(64.0f * myNoise.GetNoise(float(0.75f * x), float(0.75f * z)) + 32);
 
-			volume.setCell(Cell::Mirror, Cell::None, x, grid_size_y - 1, z);
+			volume_raw->setCell(Cell::Solid, Cell::None, x, 256, z);
 			//volume.setCell(Cell::Solid, Cell::Grass, x, 0, z);
-
 			for (int y(1); y < std::min(max_height, height); ++y) {
-				volume.setCell(Cell::Solid, Cell::Grass, x, grid_size_y - y - 1, z);
+				volume_raw->setCell(Cell::Solid, Cell::Grass, x, y + 256, z);
 			}
 		}
 	}
 
-	RayCaster raycaster(volume, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
+	for (int y(0); y < 200; ++y) {
+		//volume_raw->setCell(Cell::Solid, Cell::Grass, 256, y, 256);
+	}
+
+	//volume_raw->setCell(Cell::Solid, Cell::Grass, 511, 511, 511);
+	//volume_raw->setCell(Cell::Solid, Cell::Grass, 0, 7, 0);
+	//volume_raw->setCell(Cell::Solid, Cell::Grass, 10, 63, 63);
+
+	constexpr float scale = 1.0f / size;
+	LSVO<max_depth> lsvo(*volume_raw);
+	//print(lsvo);
+
+	//lsvo.castRay(camera.position * scale, glm::normalize(glm::vec3(0, 7, 0) - camera.position), 1024);
+	//return 0;
+
+	delete volume_raw;
+
+	RayCaster raycaster(lsvo, sf::Vector2i(RENDER_WIDTH, RENDER_HEIGHT));
 
 	const uint32_t thread_count = 16U;
 	const uint32_t area_count = uint32_t(sqrt(thread_count));
@@ -84,158 +102,37 @@ int32_t main()
 
 	float time = 0.0f;
 
-	bool mouse_control = true;
-	bool use_denoise = false;
-	bool mode_demo = false;
-
 	int32_t checker_board_offset = 0;
 	uint32_t frame_count = 0U;
 	float frame_time = 0.0f;
 
-	bool left(false), right(false), forward(false), backward(false), up(false);
-
-	while (window.isOpen())
-	{
+	while (window.isOpen()) {
 		sf::Clock frame_clock;
 		const sf::Vector2i mouse_pos = sf::Mouse::getPosition(window);
 
-		if (mouse_control) {
+		if (event_manager.mouse_control) {
 			sf::Mouse::setPosition(sf::Vector2i(win_width / 2, win_height / 2), window);
 			const float mouse_sensitivity = 0.005f;
 			controller.updateCameraView(mouse_sensitivity * glm::vec2(mouse_pos.x - win_width * 0.5f, (win_height  * 0.5f) - mouse_pos.y), camera);
 		}
 
-		camera.view_angle.x = 3.7f;
-		camera.view_angle.y = -0.2f;
+		camera.setViewAngle(glm::vec2(3.7f, -0.2f));
 
-		glm::vec3 move = glm::vec3(0.0f);
-		sf::Event event;
-		while (window.pollEvent(event)) {
-			if (event.type == sf::Event::Closed)
-				window.close();
+		//camera.setViewAngle(glm::vec2(0.845f, -0.625f));
+		//std::cout << camera.position.x << " " << camera.position.y << " " << camera.position.z << std::endl;
 
-			if (event.type == sf::Event::KeyPressed) {
-				switch (event.key.code) {
-				case sf::Keyboard::Escape:
-					window.close();
-					break;
-				case sf::Keyboard::Z:
-					forward = true;
-					break;
-				case sf::Keyboard::S:
-					backward = true;
-					break;
-				case sf::Keyboard::Q:
-					left = true;
-					break;
-				case sf::Keyboard::D:
-					right = true;
-					break;
-				case sf::Keyboard::O:
-					raycaster.use_ao = !raycaster.use_ao;
-					break;
-				case sf::Keyboard::Space:
-					up = true;
-					break;
-				case sf::Keyboard::A:
-					use_denoise = !use_denoise;
-					break;
-				case sf::Keyboard::E:
-					mouse_control = !mouse_control;
-					window.setMouseCursorVisible(!mouse_control);
-					break;
-				case sf::Keyboard::F:
-					mode_demo = !mode_demo;
-					window.setMouseCursorVisible(!mode_demo && !mouse_control);
-					if (mode_demo) {
-						time = 0.0f;
-					}
-					break;
-				case sf::Keyboard::Up:
-					break;
-				case sf::Keyboard::Down:
-					break;
-				case sf::Keyboard::Right:
-					camera.aperture += 0.1f;
-					break;
-				case sf::Keyboard::Left:
-					camera.aperture -= 0.1f;
-					if (camera.aperture < 0.0f) {
-						camera.aperture = 0.0f;
-					}
-					break;
-				case sf::Keyboard::R:
-					raycaster.use_samples = !raycaster.use_samples;
-					if (raycaster.use_samples) {
-						raycaster.resetSamples();
-					}
-					break;
-				case sf::Keyboard::G:
-					raycaster.use_gi = !raycaster.use_gi;
-					break;
-				case sf::Keyboard::H:
-					raycaster.use_god_rays = !raycaster.use_god_rays;
-					break;
-				default:
-					break;
-				}
-			}
-			else if (event.type == sf::Event::KeyReleased) {
-				switch (event.key.code) {
-				case sf::Keyboard::Z:
-					forward = false;
-					break;
-				case sf::Keyboard::S:
-					backward = false;
-					break;
-				case sf::Keyboard::Q:
-					left = false;
-					break;
-				case sf::Keyboard::D:
-					right = false;
-					break;
-				case sf::Keyboard::Space:
-					up = false;
-					break;
-				default:
-					break;
-				}
-			}
+		event_manager.processEvents(controller, camera, raycaster);
+
+		//const glm::vec3 light_position = glm::vec3(256 + 256 * cos(0.2*time), 220, 256 + 0 * sin(0.2*time));
+		const glm::vec3 light_position = glm::vec3(0, 200, 0);
+		raycaster.setLightPosition(light_position * scale);
+
+		auto hp_camera = lsvo.castRay(camera.position * scale + glm::vec3(1.0f), camera.camera_vec, 1024);
+		if (hp_camera.cell) {
+			//std::cout << toString((hp_camera.position - glm::vec3(1.0f)) / scale) << std::endl;
 		}
-
-		if (forward) {
-			move += camera.camera_vec * movement_speed;
-		}
-		else if (backward) {
-			move -= camera.camera_vec * movement_speed;
-		}
-
-		if (left) {
-			move += glm::vec3(-camera.camera_vec.z, 0.0f, camera.camera_vec.x) * movement_speed;
-		}
-		else if (right) {
-			move -= glm::vec3(-camera.camera_vec.z, 0.0f, camera.camera_vec.x) * movement_speed;
-		}
-
-		if (up) {
-			move += glm::vec3(0.0f, -1.0f, 0.0f) * movement_speed;
-		}
-
-		controller.move(move, camera);
-
-		const glm::vec3 light_position = glm::vec3(100, -1000, 30);
-		raycaster.setLightPosition(light_position);
 
 		sf::Clock render_clock;
-
-		// Computing camera's focal length based on aimed point
-		HitPoint closest_point = camera.getClosestPoint(volume);
-		if (closest_point.cell) {
-			camera.focal_length = closest_point.distance;
-		}
-		else {
-			camera.focal_length = 100.0f;
-		}
 
 		// Computing some constants, could be done outside main loop
 		const uint32_t area_width = RENDER_WIDTH / area_count;
@@ -256,11 +153,10 @@ int32_t main()
 					const float lens_y = float(y) / float(RENDER_HEIGHT) - 0.5f;
 					// Get ray to cast with stochastic blur baked into it
 					const CameraRay camera_ray = camera.getRay(glm::vec2(lens_x, lens_y));
-					raycaster.renderRay(sf::Vector2i(x, y), camera.position + camera_ray.world_rand_offset, camera_ray.ray, time);
+					raycaster.renderRay(sf::Vector2i(x, y), (camera.position + camera_ray.world_rand_offset)*scale + glm::vec3(1.0f), camera_ray.ray, time);
 				}
 			}
 		});
-
 		// Wait for threads to terminate
 		group.waitExecutionDone();
 
@@ -269,7 +165,7 @@ int32_t main()
 		}
 
 		// Add some persistence to reduce the noise
-		const float old_value_conservation = raycaster.use_samples ? 0.0f : 0.75f;
+		const float old_value_conservation = raycaster.use_samples ? 0.0f : 0.2f;
 		sf::RectangleShape cache1(sf::Vector2f(RENDER_WIDTH, RENDER_HEIGHT));
 		cache1.setFillColor(sf::Color(255 * old_value_conservation, 255 * old_value_conservation, 255 * old_value_conservation));
 		sf::RectangleShape cache2(sf::Vector2f(win_width, win_height));
@@ -296,6 +192,6 @@ int32_t main()
 		++frame_count;
 		time += dt;
 
-		std::cout << "AVG frame time " << time / double(frame_count) << std::endl;
+		//std::cout << "AVG frame time " << time / double(frame_count) << std::endl;
 	}
 }

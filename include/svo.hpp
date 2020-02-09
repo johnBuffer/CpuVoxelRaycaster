@@ -25,49 +25,45 @@ struct Node
 };
 
 
-struct Ray
-{
-	Ray() = default;
-	
-	Ray(const glm::vec3& start_, const glm::vec3& direction_)
-		: start(start_)
-		, direction(direction_)
-		, inv_direction(1.0f / direction_)
-		, t(glm::abs(1.0f / direction_))
-		, step(direction_.x >= 0.0f ? 1.0f : -1.0f, copysign(1.0f, direction_.y), copysign(1.0f, direction_.z))
-		, dir(direction_.x > 0.0f, direction_.y > 0.0f, direction_.z > 0.0f)
-		, point()
-		, t_total(0.0f)
-		, hit_side(0U)
-	{
-	}
-
-	const glm::vec3 start;
-	const glm::vec3 direction;
-	const glm::vec3 inv_direction;
-	const glm::vec3 t;
-	const glm::vec3 step;
-	const glm::vec3 dir;
-	uint8_t hit_side;
-	float t_total;
-
-	HitPoint point;
-};
-
-
+template<uint8_t N>
 class SVO : public Volumetric
 {
 public:
+	template<uint8_t>
+	friend struct LSVO;
+
 	SVO()
 	{
 		m_root = new Node();
+	}
+
+	~SVO()
+	{
+		if (m_root) {
+			clear(m_root);
+		}
+	}
+
+	void clear(Node* node)
+	{
+		for (int x(0); x < 2; ++x) {
+			for (int y(0); y < 2; ++y) {
+				for (int z(0); z < 2; ++z) {
+					if (node->sub[x][y][z]) {
+						clear(node->sub[x][y][z]);
+					}
+				}
+			}
+		}
+
+		delete node;
 	}
 
 	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, const uint32_t max_iter) const override
 	{
 		Ray ray(position, direction);
 
-		const uint32_t max_cell_size = uint32_t(std::pow(2, m_max_level - 1));
+		const uint32_t max_cell_size = uint32_t(std::pow(2, N - 1));
 		rec_castRay(ray, position, max_cell_size, m_root, max_iter);
 
 		return ray.point;
@@ -75,7 +71,7 @@ public:
 
 	void setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z)
 	{
-		const uint32_t max_size = uint32_t(std::pow(2, m_max_level));
+		const uint32_t max_size = uint32_t(std::pow(2, N));
 		rec_setCell(type, texture, x, y, z, m_root, max_size);
 	}
 
@@ -89,10 +85,9 @@ public:
 			   cell_coords.z < 2;
 	}
 
-private:
 	Node* m_root;
-	const uint32_t m_max_level = 9U;
 
+private:
 	void rec_setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z, Node* node, uint32_t size)
 	{
 		if (!node) {
@@ -120,7 +115,7 @@ private:
 
 	void fillHitResult(Ray& ray, const Node* node, const float t) const
 	{
-		HitPoint& point = ray.point;
+		/*HitPoint& point = ray.point;
 		const Cell& cell = node->cell;
 		const glm::vec3 hit = ray.start + t * ray.direction;
 
@@ -139,11 +134,11 @@ private:
 		else if (ray.hit_side == 2) {
 			point.normal = glm::vec3(0.0f, 0.0f, -ray.step.z);
 			point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.y));
-		}
+		}*/
 	}
 
-	void rec_castRay(Ray& ray, const glm::vec3& position, uint32_t cell_size, const Node* node, const uint32_t max_iter) const {
-
+	void rec_castRay(Ray& ray, const glm::vec3& position, uint32_t cell_size, const Node* node, const uint32_t max_iter) const
+	{
 		glm::vec3 cell_pos_i = glm::ivec3(position.x / cell_size, position.y / cell_size, position.z / cell_size);
 		clamp(cell_pos_i.x, 0.0f, 1.0f);
 		clamp(cell_pos_i.y, 0.0f, 1.0f);
