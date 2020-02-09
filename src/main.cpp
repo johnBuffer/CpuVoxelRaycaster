@@ -49,7 +49,7 @@ int32_t main()
 	Volume* volume_raw = new Volume();
 
 	Camera camera;
-	camera.position = glm::vec3(0.0f, 0.0f, 0.0f);
+	camera.position = glm::vec3(256, 200, 256);;
 	camera.view_angle = glm::vec2(0.0f);
 	camera.fov = 1.0f;
 
@@ -67,16 +67,16 @@ int32_t main()
 			float ratio = std::pow(1.0f - sqrt(amp_x * amp_x + amp_z * amp_z) / (10.0f * grid_size_x), 256.0f);
 			int32_t height = int32_t(64.0f * myNoise.GetNoise(float(0.75f * x), float(0.75f * z)) + 32);
 
-			volume_raw->setCell(Cell::Solid, Cell::None, x, 0, z);
+			volume_raw->setCell(Cell::Solid, Cell::None, x, 256, z);
 			//volume.setCell(Cell::Solid, Cell::Grass, x, 0, z);
 			for (int y(1); y < std::min(max_height, height); ++y) {
-				volume_raw->setCell(Cell::Solid, Cell::Grass, x, y, z);
+				volume_raw->setCell(Cell::Solid, Cell::Grass, x, y + 256, z);
 			}
 		}
 	}
 
 	for (int y(0); y < 200; ++y) {
-		volume_raw->setCell(Cell::Solid, Cell::Grass, 256, y, 256);
+		//volume_raw->setCell(Cell::Solid, Cell::Grass, 256, y, 256);
 	}
 
 	//volume_raw->setCell(Cell::Solid, Cell::Grass, 511, 511, 511);
@@ -115,6 +115,8 @@ int32_t main()
 			const float mouse_sensitivity = 0.005f;
 			controller.updateCameraView(mouse_sensitivity * glm::vec2(mouse_pos.x - win_width * 0.5f, (win_height  * 0.5f) - mouse_pos.y), camera);
 		}
+
+		camera.setViewAngle(glm::vec2(3.7f, -0.2f));
 
 		//camera.setViewAngle(glm::vec2(0.845f, -0.625f));
 		//std::cout << camera.position.x << " " << camera.position.y << " " << camera.position.z << std::endl;
