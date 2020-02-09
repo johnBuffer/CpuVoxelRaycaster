@@ -24,24 +24,24 @@ struct LSVO
 
 	void setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z) {}
 
-	glm::vec3 getT(const glm::vec3& planes_pos, const glm::vec3& inv_direction, const glm::vec3& offset) const
+	inline glm::vec3 getT(const glm::vec3& planes_pos, const glm::vec3& inv_direction, const glm::vec3& offset) const
 	{
 		return planes_pos * inv_direction - offset;
 	}
 
 	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, float ray_size_coef = 0.0f, float ray_size_bias = 0.0f) const
 	{
+		HitPoint result;
 		// Const values
 		constexpr uint8_t SVO_MAX_DEPTH = 23u;
 		constexpr uint8_t DEPTH_OFFSET = SVO_MAX_DEPTH - MAX_DEPTH;
-		const float SVO_SIZE = std::pow(2.0f, MAX_DEPTH);
-		HitPoint result;
+		constexpr float SVO_SIZE = 1 << MAX_DEPTH;
 		const LNode* raw_data = &(data[0]);
 		// Initialize stack
-		OctreeStack stack[MAX_DEPTH+1];
+		OctreeStack stack[MAX_DEPTH];
 		// Check octant mask and modify ray accordingly
-		glm::vec3 d = glm::normalize(direction);
-		const float epsilon = 1.0f / std::pow(2.0f, SVO_MAX_DEPTH);
+		glm::vec3 d = direction;
+		constexpr float epsilon = 1.0f / float(1 << SVO_MAX_DEPTH);
 		if (std::abs(d.x) < epsilon) { d.x = copysign(epsilon, d.x); }
 		if (std::abs(d.y) < epsilon) { d.y = copysign(epsilon, d.y); }
 		if (std::abs(d.z) < epsilon) { d.z = copysign(epsilon, d.z); }
@@ -86,7 +86,6 @@ struct LSVO
 					result.cell = cell;
 					break;
 				}
-
 				const float tv_max = std::min(t_max, tc_max);
 				const float half = scale_f * 0.5f;
 				const glm::vec3 t_half = half * t_coef + t_corner;
@@ -130,14 +129,11 @@ struct LSVO
 				if (step_mask & 1u) differing_bits |= (floatAsInt(pos.x) ^ floatAsInt(pos.x + scale_f));
 				if (step_mask & 2u) differing_bits |= (floatAsInt(pos.y) ^ floatAsInt(pos.y + scale_f));
 				if (step_mask & 4u) differing_bits |= (floatAsInt(pos.z) ^ floatAsInt(pos.z + scale_f));
-
 				scale = (floatAsInt((float)differing_bits) >> SVO_MAX_DEPTH) - 127u;
 				scale_f = intAsFloat((scale - SVO_MAX_DEPTH + 127u) << SVO_MAX_DEPTH);
-
 				OctreeStack entry = stack[scale - DEPTH_OFFSET];
 				parent_id = entry.parent_index;
 				t_max = entry.t_max;
-
 				const uint32_t shx = floatAsInt(pos.x) >> scale;
 				const uint32_t shy = floatAsInt(pos.y) >> scale;
 				const uint32_t shz = floatAsInt(pos.z) >> scale;

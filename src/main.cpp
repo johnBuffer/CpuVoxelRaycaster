@@ -20,14 +20,14 @@
 
 int32_t main()
 {
-	constexpr uint32_t win_width = 1280;
-	constexpr uint32_t win_height = 720;
+	constexpr uint32_t win_width = 1920;
+	constexpr uint32_t win_height = 1080;
 
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
 	window.setMouseCursorVisible(true);
 	//window.setFramerateLimit(40);
 
-	constexpr float render_scale = 0.5f;
+	constexpr float render_scale = 0.4f;
 	constexpr uint32_t RENDER_WIDTH = uint32_t(win_width  * render_scale);
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
@@ -79,16 +79,8 @@ int32_t main()
 		//volume_raw->setCell(Cell::Solid, Cell::Grass, 256, y, 256);
 	}
 
-	//volume_raw->setCell(Cell::Solid, Cell::Grass, 511, 511, 511);
-	//volume_raw->setCell(Cell::Solid, Cell::Grass, 0, 7, 0);
-	//volume_raw->setCell(Cell::Solid, Cell::Grass, 10, 63, 63);
-
 	constexpr float scale = 1.0f / size;
 	LSVO<max_depth> lsvo(*volume_raw);
-	//print(lsvo);
-
-	//lsvo.castRay(camera.position * scale, glm::normalize(glm::vec3(0, 7, 0) - camera.position), 1024);
-	//return 0;
 
 	delete volume_raw;
 
@@ -117,10 +109,6 @@ int32_t main()
 		}
 
 		camera.setViewAngle(glm::vec2(3.7f, -0.2f));
-
-		//camera.setViewAngle(glm::vec2(0.845f, -0.625f));
-		//std::cout << camera.position.x << " " << camera.position.y << " " << camera.position.z << std::endl;
-
 		event_manager.processEvents(controller, camera, raycaster);
 
 		//const glm::vec3 light_position = glm::vec3(256 + 256 * cos(0.2*time), 220, 256 + 0 * sin(0.2*time));
