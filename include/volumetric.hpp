@@ -11,13 +11,8 @@ struct HitPoint
 		, complexity(0u)
 	{}
 
-	const glm::vec3 getNormal() const
-	{
-		return glm::vec3(float(normal & 1u), float(normal & 2u), float(normal & 4u));
-	}
-
 	glm::vec3 position;
-	uint8_t normal;
+	glm::vec3 normal;
 	glm::vec2 voxel_coord;
 
 	const Cell* cell;

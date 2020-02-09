@@ -25,6 +25,7 @@ struct Node
 };
 
 
+template<uint8_t N>
 class SVO : public Volumetric
 {
 public:
@@ -62,7 +63,7 @@ public:
 	{
 		Ray ray(position, direction);
 
-		const uint32_t max_cell_size = uint32_t(std::pow(2, m_max_level - 1));
+		const uint32_t max_cell_size = uint32_t(std::pow(2, N - 1));
 		rec_castRay(ray, position, max_cell_size, m_root, max_iter);
 
 		return ray.point;
@@ -70,7 +71,7 @@ public:
 
 	void setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z)
 	{
-		const uint32_t max_size = uint32_t(std::pow(2, m_max_level));
+		const uint32_t max_size = uint32_t(std::pow(2, N));
 		rec_setCell(type, texture, x, y, z, m_root, max_size);
 	}
 
@@ -87,8 +88,6 @@ public:
 	Node* m_root;
 
 private:
-	const uint32_t m_max_level = 9U;
-
 	void rec_setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z, Node* node, uint32_t size)
 	{
 		if (!node) {

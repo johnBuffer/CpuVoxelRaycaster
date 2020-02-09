@@ -39,4 +39,15 @@ struct OctreeStack
 
 void compileSVO_rec(const Node* node, std::vector<LNode>& data, const uint32_t node_index, uint32_t& max_offset);
 
-std::vector<LNode> compileSVO(const SVO& svo);
+
+template<uint8_t N>
+std::vector<LNode> compileSVO(const SVO<N>& svo)
+{
+	std::vector<LNode> data;
+	data.push_back(LNode());
+
+	uint32_t max_offset = 0U;
+	compileSVO_rec(svo.m_root, data, 0, max_offset);
+
+	return data;
+}

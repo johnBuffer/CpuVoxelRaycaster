@@ -7,14 +7,14 @@
 
 
 template<uint8_t MAX_DEPTH>
-struct LSVO : public Volumetric
+struct LSVO
 {
-	LSVO(const SVO& svo)
+	LSVO(const SVO<MAX_DEPTH>& svo)
 	{
 		importFromSVO(svo);
 	}
 
-	void importFromSVO(const SVO& svo)
+	void importFromSVO(const SVO<MAX_DEPTH>& svo)
 	{
 		data = compileSVO(svo);
 		cell = new Cell();
@@ -29,7 +29,7 @@ struct LSVO : public Volumetric
 		return planes_pos * inv_direction - offset;
 	}
 
-	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, const uint32_t max_iter) const
+	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, float ray_size_coef = 0.0f, float ray_size_bias = 0.0f) const
 	{
 		// Const values
 		constexpr uint8_t SVO_MAX_DEPTH = 23u;
@@ -37,16 +37,16 @@ struct LSVO : public Volumetric
 		const float SVO_SIZE = std::pow(2.0f, MAX_DEPTH);
 		HitPoint result;
 		const LNode* raw_data = &(data[0]);
-		glm::vec3 d = glm::normalize(direction);
 		// Initialize stack
 		OctreeStack stack[MAX_DEPTH+1];
 		// Check octant mask and modify ray accordingly
-		const float epsilon = 1.0f / std::pow(2.0f, 23);
+		glm::vec3 d = glm::normalize(direction);
+		const float epsilon = 1.0f / std::pow(2.0f, SVO_MAX_DEPTH);
 		if (std::abs(d.x) < epsilon) { d.x = copysign(epsilon, d.x); }
 		if (std::abs(d.y) < epsilon) { d.y = copysign(epsilon, d.y); }
 		if (std::abs(d.z) < epsilon) { d.z = copysign(epsilon, d.z); }
 		const glm::vec3 t_coef = 1.0f / -glm::abs(d);
-		glm::vec3 t_bias = (position + glm::vec3(1.0f)) * t_coef;
+		glm::vec3 t_bias = position * t_coef;
 		uint8_t octant_mask = 7u;
 		if (d.x > 0.0f) { octant_mask ^= 1u; t_bias.x = 3.0f * t_coef.x - t_bias.x; }
 		if (d.y > 0.0f) { octant_mask ^= 2u; t_bias.y = 3.0f * t_coef.y - t_bias.y; }
@@ -70,6 +70,7 @@ struct LSVO : public Volumetric
 		if (t_center.x > t_min) { idx ^= 1u, pos.x = 1.5f; }
 		if (t_center.y > t_min) { idx ^= 2u, pos.y = 1.5f; }
 		if (t_center.z > t_min) { idx ^= 4u, pos.z = 1.5f; }
+		uint8_t normal = 0u;
 		// Explore octree
 		while (scale < SVO_MAX_DEPTH && scale > MAX_DEPTH) {
 			++result.complexity;
@@ -81,9 +82,6 @@ struct LSVO : public Volumetric
 			const uint8_t child_shift = idx ^ octant_mask;
 			const uint8_t child_mask = parent_ref.child_mask >> child_shift;
 			if ((child_mask & 1u) && t_min <= t_max) {
-
-				constexpr float ray_size_coef = 0.0078125f;
-				constexpr float ray_size_bias = 0.000030517578125f * 2.0f;
 				if (tc_max * ray_size_coef + ray_size_bias >= scale_f) {
 					result.cell = cell;
 					break;
@@ -125,7 +123,7 @@ struct LSVO : public Volumetric
 
 			t_min = tc_max;
 			idx ^= step_mask;
-			result.normal = step_mask;
+			normal = step_mask;
 
 			if (idx & step_mask) {
 				uint32_t differing_bits = 0u;
@@ -133,8 +131,8 @@ struct LSVO : public Volumetric
 				if (step_mask & 2u) differing_bits |= (floatAsInt(pos.y) ^ floatAsInt(pos.y + scale_f));
 				if (step_mask & 4u) differing_bits |= (floatAsInt(pos.z) ^ floatAsInt(pos.z + scale_f));
 
-				scale = (floatAsInt((float)differing_bits) >> 23u) - 127u;
-				scale_f = intAsFloat((scale - 23u + 127u) << 23u);
+				scale = (floatAsInt((float)differing_bits) >> SVO_MAX_DEPTH) - 127u;
+				scale_f = intAsFloat((scale - SVO_MAX_DEPTH + 127u) << SVO_MAX_DEPTH);
 
 				OctreeStack entry = stack[scale - DEPTH_OFFSET];
 				parent_id = entry.parent_index;
@@ -151,42 +149,30 @@ struct LSVO : public Volumetric
 			}
 		}
 		
-		if (scale >= MAX_DEPTH) {
-			//result.hit = 0u;
+		if (result.cell) {
+			result.normal = -glm::sign(d) * glm::vec3(float(normal & 1u), float(normal & 2u), float(normal & 4u));
+
+			if ((octant_mask & 1) == 0) pos.x = 3.0f - scale_f - pos.x;
+			if ((octant_mask & 2) == 0) pos.y = 3.0f - scale_f - pos.y;
+			if ((octant_mask & 4) == 0) pos.z = 3.0f - scale_f - pos.z;
+
+			result.distance = t_min;
+			result.position.x = std::min(std::max(position.x + t_min * d.x, pos.x + epsilon), pos.x + scale_f - epsilon);
+			result.position.y = std::min(std::max(position.y + t_min * d.y, pos.y + epsilon), pos.y + scale_f - epsilon);
+			result.position.z = std::min(std::max(position.z + t_min * d.z, pos.z + epsilon), pos.z + scale_f - epsilon);
+
+			if (result.normal.x) {
+				result.voxel_coord = glm::vec2(frac(result.position.z * SVO_SIZE), frac(result.position.y * SVO_SIZE));
+			}
+			else if (result.normal.y) {
+				result.voxel_coord = glm::vec2(frac(result.position.x * SVO_SIZE), frac(result.position.z * SVO_SIZE));
+			}
+			else if (result.normal.z) {
+				result.voxel_coord = glm::vec2(frac(result.position.x * SVO_SIZE), frac(result.position.y * SVO_SIZE));
+			}
 		}
 
-		if ((octant_mask & 1) == 0) pos.x = 3.0f - scale_f - pos.x;
-		if ((octant_mask & 2) == 0) pos.y = 3.0f - scale_f - pos.y;
-		if ((octant_mask & 4) == 0) pos.z = 3.0f - scale_f - pos.z;
-
-		result.distance = t_min;
-		result.position.x = std::min(std::max(position.x + t_min * d.x, pos.x + epsilon), pos.x + scale_f - epsilon);
-		result.position.y = std::min(std::max(position.y + t_min * d.y, pos.y + epsilon), pos.y + scale_f - epsilon);
-		result.position.z = std::min(std::max(position.z + t_min * d.z, pos.z + epsilon), pos.z + scale_f - epsilon);
 		return result;
-	}
-
-	void fillHitResult(Ray& ray, const float t) const
-	{
-		HitPoint& point = ray.point;
-		const glm::vec3 hit = ray.start + t * ray.direction;
-
-		point.cell = cell;
-		point.position = hit;
-		point.distance = t;
-
-		if (ray.hit_side == 0) {
-			point.normal = glm::vec3(-ray.step.x, 0.0f, 0.0f);
-			point.voxel_coord = glm::vec2(1.0f - frac(hit.z), frac(hit.y));
-		}
-		else if (ray.hit_side == 1) {
-			point.normal = glm::vec3(0.0f, -ray.step.y, 0.0f);
-			point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.z));
-		}
-		else if (ray.hit_side == 2) {
-			point.normal = glm::vec3(0.0f, 0.0f, -ray.step.z);
-			point.voxel_coord = glm::vec2(frac(hit.x), frac(hit.y));
-		}
 	}
 
 	std::vector<LNode> data;

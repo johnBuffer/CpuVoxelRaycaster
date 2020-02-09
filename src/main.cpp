@@ -24,7 +24,8 @@ int32_t main()
 	constexpr uint32_t win_height = 720;
 
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
-	window.setMouseCursorVisible(false);
+	window.setMouseCursorVisible(true);
+	//window.setFramerateLimit(40);
 
 	constexpr float render_scale = 0.5f;
 	constexpr uint32_t RENDER_WIDTH = uint32_t(win_width  * render_scale);
@@ -39,15 +40,16 @@ int32_t main()
 
 	const float body_radius = 0.4f;
 
-	constexpr int32_t size = 512;
+	constexpr uint8_t max_depth = 9;
+	constexpr int32_t size = 1 << max_depth;
 	constexpr int32_t grid_size_x = size;
 	constexpr int32_t grid_size_y = size;
 	constexpr int32_t grid_size_z = size;
-	using Volume = SVO;
+	using Volume = SVO<max_depth>;
 	Volume* volume_raw = new Volume();
 
 	Camera camera;
-	camera.position = glm::vec3(6.59589, 3.9688, 5.10499);
+	camera.position = glm::vec3(0.0f, 0.0f, 0.0f);
 	camera.view_angle = glm::vec2(0.0f);
 	camera.fov = 1.0f;
 
@@ -63,9 +65,9 @@ int32_t main()
 			float amp_x = x - grid_size_x * 0.5f;
 			float amp_z = z - grid_size_z * 0.5f;
 			float ratio = std::pow(1.0f - sqrt(amp_x * amp_x + amp_z * amp_z) / (10.0f * grid_size_x), 256.0f);
-			int32_t height = int32_t(92.0f * myNoise.GetNoise(float(0.75f * x), float(0.75f * z)) + 32);
+			int32_t height = int32_t(64.0f * myNoise.GetNoise(float(0.75f * x), float(0.75f * z)) + 32);
 
-			//volume_raw->setCell(Cell::Mirror, Cell::None, x, grid_size_y - 1, z);
+			volume_raw->setCell(Cell::Solid, Cell::None, x, 0, z);
 			//volume.setCell(Cell::Solid, Cell::Grass, x, 0, z);
 			for (int y(1); y < std::min(max_height, height); ++y) {
 				volume_raw->setCell(Cell::Solid, Cell::Grass, x, y, z);
@@ -73,14 +75,16 @@ int32_t main()
 		}
 	}
 
+	for (int y(0); y < 200; ++y) {
+		volume_raw->setCell(Cell::Solid, Cell::Grass, 256, y, 256);
+	}
+
 	//volume_raw->setCell(Cell::Solid, Cell::Grass, 511, 511, 511);
 	//volume_raw->setCell(Cell::Solid, Cell::Grass, 0, 7, 0);
 	//volume_raw->setCell(Cell::Solid, Cell::Grass, 10, 63, 63);
 
-	constexpr uint8_t svo_depth = 9u;
-	const float side_size = std::pow(2.0f, float(svo_depth));
-	const float scale = 1.0f / side_size;
-	LSVO<svo_depth> lsvo(*volume_raw);
+	constexpr float scale = 1.0f / size;
+	LSVO<max_depth> lsvo(*volume_raw);
 	//print(lsvo);
 
 	//lsvo.castRay(camera.position * scale, glm::normalize(glm::vec3(0, 7, 0) - camera.position), 1024);
@@ -97,9 +101,6 @@ int32_t main()
 	sf::Mouse::setPosition(sf::Vector2i(win_width / 2, win_height / 2), window);
 
 	float time = 0.0f;
-
-	bool use_denoise = false;
-	bool mode_demo = false;
 
 	int32_t checker_board_offset = 0;
 	uint32_t frame_count = 0U;
@@ -120,9 +121,14 @@ int32_t main()
 
 		event_manager.processEvents(controller, camera, raycaster);
 
-		//const glm::vec3 light_position = glm::vec3(256 + 256 * cos(time), 256, 256 + 256 * sin(time));
-		const glm::vec3 light_position = glm::vec3(500, 400, 200);
-		raycaster.setLightPosition(light_position);
+		//const glm::vec3 light_position = glm::vec3(256 + 256 * cos(0.2*time), 220, 256 + 0 * sin(0.2*time));
+		const glm::vec3 light_position = glm::vec3(0, 200, 0);
+		raycaster.setLightPosition(light_position * scale);
+
+		auto hp_camera = lsvo.castRay(camera.position * scale + glm::vec3(1.0f), camera.camera_vec, 1024);
+		if (hp_camera.cell) {
+			//std::cout << toString((hp_camera.position - glm::vec3(1.0f)) / scale) << std::endl;
+		}
 
 		sf::Clock render_clock;
 
@@ -145,7 +151,7 @@ int32_t main()
 					const float lens_y = float(y) / float(RENDER_HEIGHT) - 0.5f;
 					// Get ray to cast with stochastic blur baked into it
 					const CameraRay camera_ray = camera.getRay(glm::vec2(lens_x, lens_y));
-					raycaster.renderRay(sf::Vector2i(x, y), (camera.position + camera_ray.world_rand_offset)*scale, camera_ray.ray, time);
+					raycaster.renderRay(sf::Vector2i(x, y), (camera.position + camera_ray.world_rand_offset)*scale + glm::vec3(1.0f), camera_ray.ray, time);
 				}
 			}
 		});
@@ -157,7 +163,7 @@ int32_t main()
 		}
 
 		// Add some persistence to reduce the noise
-		const float old_value_conservation = raycaster.use_samples ? 0.0f : 0.0f;
+		const float old_value_conservation = raycaster.use_samples ? 0.0f : 0.2f;
 		sf::RectangleShape cache1(sf::Vector2f(RENDER_WIDTH, RENDER_HEIGHT));
 		cache1.setFillColor(sf::Color(255 * old_value_conservation, 255 * old_value_conservation, 255 * old_value_conservation));
 		sf::RectangleShape cache2(sf::Vector2f(win_width, win_height));
