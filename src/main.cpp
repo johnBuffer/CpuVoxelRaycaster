@@ -20,11 +20,11 @@
 
 int32_t main()
 {
-	constexpr uint32_t win_width = 1920;
-	constexpr uint32_t win_height = 1080;
+	constexpr uint32_t win_width = 1280;
+	constexpr uint32_t win_height = 720;
 
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
-	window.setMouseCursorVisible(true);
+	window.setMouseCursorVisible(false);
 	//window.setFramerateLimit(40);
 
 	constexpr float render_scale = 0.4f;
@@ -108,12 +108,11 @@ int32_t main()
 			controller.updateCameraView(mouse_sensitivity * glm::vec2(mouse_pos.x - win_width * 0.5f, (win_height  * 0.5f) - mouse_pos.y), camera);
 		}
 
-		camera.setViewAngle(glm::vec2(3.7f, -0.2f));
 		event_manager.processEvents(controller, camera, raycaster);
 
-		//const glm::vec3 light_position = glm::vec3(256 + 256 * cos(0.2*time), 220, 256 + 0 * sin(0.2*time));
-		const glm::vec3 light_position = glm::vec3(0, 200, 0);
-		raycaster.setLightPosition(light_position * scale);
+		const float light_speed = 0.0f;
+		const glm::vec3 light_position = glm::vec3(300 + 500 * cos(light_speed*time), 0, 256 + 1000 * sin(light_speed*time));
+		raycaster.setLightPosition(light_position * scale + glm::vec3(1.0f));
 
 		auto hp_camera = lsvo.castRay(camera.position * scale + glm::vec3(1.0f), camera.camera_vec, 1024);
 		if (hp_camera.cell) {
@@ -153,7 +152,7 @@ int32_t main()
 		}
 
 		// Add some persistence to reduce the noise
-		const float old_value_conservation = raycaster.use_samples ? 0.0f : 0.2f;
+		const float old_value_conservation = raycaster.use_samples ? 0.0f : 0.8f;
 		sf::RectangleShape cache1(sf::Vector2f(RENDER_WIDTH, RENDER_HEIGHT));
 		cache1.setFillColor(sf::Color(255 * old_value_conservation, 255 * old_value_conservation, 255 * old_value_conservation));
 		sf::RectangleShape cache2(sf::Vector2f(win_width, win_height));

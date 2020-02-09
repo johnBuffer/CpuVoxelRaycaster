@@ -36,12 +36,12 @@ struct LSVO
 		constexpr uint8_t SVO_MAX_DEPTH = 23u;
 		constexpr uint8_t DEPTH_OFFSET = SVO_MAX_DEPTH - MAX_DEPTH;
 		constexpr float SVO_SIZE = 1 << MAX_DEPTH;
+		constexpr float epsilon = 1.0f / float(1 << SVO_MAX_DEPTH);
 		const LNode* raw_data = &(data[0]);
 		// Initialize stack
 		OctreeStack stack[MAX_DEPTH];
 		// Check octant mask and modify ray accordingly
 		glm::vec3 d = direction;
-		constexpr float epsilon = 1.0f / float(1 << SVO_MAX_DEPTH);
 		if (std::abs(d.x) < epsilon) { d.x = copysign(epsilon, d.x); }
 		if (std::abs(d.y) < epsilon) { d.y = copysign(epsilon, d.y); }
 		if (std::abs(d.z) < epsilon) { d.z = copysign(epsilon, d.z); }

@@ -39,12 +39,12 @@ struct ColorResult
 	float distance = 0.0f;
 };
 
-constexpr uint8_t svo_depth = 9u;
+constexpr uint8_t SVO_DEPTH = 9u;
 struct RayCaster
 {
 	const float eps = 0.001f;
 
-	RayCaster(const LSVO<svo_depth>& svo_, const sf::Vector2i& render_size_)
+	RayCaster(const LSVO<SVO_DEPTH>& svo_, const sf::Vector2i& render_size_)
 		: svo(svo_)
 		, render_size(render_size_)
 	{
@@ -116,7 +116,12 @@ struct RayCaster
 
 	ColorResult castRay(const glm::vec3& start, const glm::vec3& direction, float time, RayContext& context)
 	{
-		constexpr float scaling = 1.0f / 512.0f;
+		// Const values
+		constexpr uint8_t SVO_MAX_DEPTH = 23u;
+		constexpr uint8_t DEPTH_OFFSET = SVO_MAX_DEPTH - SVO_DEPTH;
+		constexpr float SVO_SIZE = 1 << SVO_DEPTH;
+		constexpr float SCALE = 1.0f / SVO_SIZE;
+		constexpr float epsilon = 1.0f / float(1 << SVO_MAX_DEPTH);
 		ColorResult result;
 		if (context.bounds > max_bounds)
 			return result;
@@ -127,18 +132,14 @@ struct RayCaster
 
 		if (intersection.cell) {
 			const glm::vec3& normal = intersection.normal;
-			//result.color = sf::Color::Red;
 			result.distance = intersection.distance;
 			const Cell& cell = *(intersection.cell);
-			const glm::vec3 hit_position = intersection.position + intersection.normal * (scaling * 0.0078125f);
+			const glm::vec3 hit_position = intersection.position + intersection.normal * (SCALE * 0.0078125f);
 
-			sf::Color hit_texture_color = sf::Color::Black;
+			sf::Color albedo = sf::Color::Black;
 			if (cell.type == Cell::Solid) {
-				hit_texture_color = getTextureColorFromHitPoint(intersection);
-				result.color = hit_texture_color;
-				if (use_ao) {
-					mult(result.color, getAmbientOcclusion(intersection));
-				}
+				albedo = getTextureColorFromHitPoint(intersection);
+				result.color = albedo;
 			}
 			else if (cell.type == Cell::Mirror) {
 				const float roughness = 0.04f;
@@ -150,8 +151,8 @@ struct RayCaster
 
 			const uint32_t shadow_sample = use_samples ? 4U : 1U;
 
+			float light_intensity = 0.0f;
 			if (cell.texture != Cell::Red) {
-				float light_intensity = 0.0f;
 				for (uint32_t i(shadow_sample); i--;) {
 					const glm::vec3 light_point = light_position;// +glm::vec3(getRand(-25.0f, 25.0f), getRand(-25.0f, 25.0f), 0.0f);
 					const glm::vec3 point_to_light = glm::normalize(light_point - hit_position);
@@ -161,19 +162,11 @@ struct RayCaster
 						light_intensity = std::max(0.0f, glm::dot(point_to_light, normal));
 					}
 				}
-
-				mult(result.color, std::max(0.5f, (light_intensity)));
 			}
 
-			if (use_gi && context.gi_bounce) {
-				--context.gi_bounce;
-				GIContribution gic;
-				getGlobalIllumination(intersection, context, gic);
-				const sf::Color gi_color(gic.r, gic.g, gic.b);
-				sf::Color obj_color = hit_texture_color;
-				mult(obj_color, gi_color);
-				add(result.color, obj_color);
-			}
+			const float gi_intensity = use_gi ? getGlobalIllumination(intersection) : 0.0f;
+
+			mult(result.color, std::min(1.0f, std::max(0.0f, light_intensity + gi_intensity)));
 		}
 
 		/*const int32_t c = context.complexity;
@@ -182,69 +175,45 @@ struct RayCaster
 		return result;
 	}
 
-	float getAmbientOcclusion(const HitPoint& point)
+	float getGlobalIllumination(const HitPoint& point)
 	{
-		constexpr float scaling = 1.0f / 512.0f;
-
-		const uint32_t ray_count = 3U;
-		const glm::vec3 ao_start = point.position + point.normal * eps;
+		constexpr float SCALE = 1.0f / 512.0f;
+		constexpr float n_normalizer = SCALE * 0.0078125f;
+		constexpr uint32_t ray_count = 2U;
+		const glm::vec3 gi_start = point.position + point.normal * n_normalizer;
 		float acc = 0.0f;
 		const glm::vec3& normal = point.normal;
+		constexpr float range = 1.0f;
 		for (uint32_t i(ray_count); i--;) {
-			glm::vec3 noise_normal = glm::vec3();
+			glm::vec3 noise_normal;
+			const float coord_1 = getRand(-range, range);
+			const float coord_2 = getRand(-range, range);
 			if (normal.x) {
-				noise_normal = glm::vec3(0.0f, getRand(-1.0f, 1.0f), getRand(-1.0f, 1.0f));
+				noise_normal = glm::vec3(0.0f, coord_1, coord_2);
 			}
 			else if (normal.y) {
-				noise_normal = glm::vec3(getRand(-1.0f, 1.0f), 0.0f, getRand(-1.0f, 1.0f));
+				noise_normal = glm::vec3(coord_1, 0.0f, coord_2);
 			}
 			else if (normal.z) {
-				noise_normal = glm::vec3(getRand(-1.0f, 1.0f), getRand(-1.0f, 1.0f), 0.0f);
+				noise_normal = glm::vec3(coord_1, coord_2, 0.0f);
 			}
 
-			HitPoint ao_point = svo.castRay(ao_start, glm::normalize(normal + noise_normal) * (scaling * 0.0078125f), 0.25f, 0.0f);
-			if (!ao_point.cell) {
-				acc += 1.25f;
-			}
-		}
-
-		return std::min(1.0f, acc / float(ray_count));
-	}
-
-	void getGlobalIllumination(const HitPoint& point, RayContext& context, GIContribution& result)
-	{
-		const uint32_t ray_count = 16U;
-		const uint32_t max_iter = 512U;
-		const glm::vec3 gi_start = point.position + point.normal * eps;
-		float acc = 0.0f;
-		uint32_t valid_rays = ray_count;
-		const glm::vec3& normal = point.normal;
-		for (uint32_t i(ray_count); i--;) {
-			glm::vec3 noise_normal = glm::vec3();
-
-			noise_normal = glm::vec3(getRand(-1.0f, 1.0f), getRand(-1.0f, 1.0f), getRand(-1.0f, 1.0f));
-
-			const glm::vec3 gi_vec = glm::normalize(normal + noise_normal);
-			const float coef = 8.0f;
-			if (glm::dot(normal, gi_vec) > 0.0f) {
-				const ColorResult ray_result = castRay(gi_start, glm::normalize(normal + noise_normal), max_iter, context);
-
-				result.r += coef * ray_result.color.r;
-				result.g += coef * ray_result.color.g;
-				result.b += coef * ray_result.color.b;
-			}
-			else {
-				--valid_rays;
+			const glm::vec3 gi_ray = glm::normalize((normal + noise_normal) * n_normalizer);
+			const HitPoint gi_point = svo.castRay(gi_start, gi_ray, 0.5f, 0.0f);
+			if (gi_point.cell) {
+				const glm::vec3 gi_light_start = gi_point.position + gi_point.normal * n_normalizer;
+				const glm::vec3 to_light = glm::normalize(light_position - gi_light_start);
+				const float dot = glm::dot(gi_point.normal, to_light);
+				if (dot > 0.0f) {
+					const HitPoint gi_light_point = svo.castRay(gi_light_start, to_light, 0.5f, 0.0f);
+					if (!gi_light_point.cell) {
+						acc += 16.0f;
+					}
+				}
 			}
 		}
 
-		result.n_points += ray_count;
-
-		if (valid_rays) {
-			result.r /= float(valid_rays);
-			result.g /= float(valid_rays);
-			result.b /= float(valid_rays);
-		}
+		return std::max(0.0f, acc / float(ray_count));
 	}
 
 	const sf::Image& getTextureFromNormal(const glm::vec3& normal)
@@ -303,7 +272,7 @@ struct RayCaster
 	sf::Image image_side;
 	sf::Image image_top;
 
-	const LSVO<svo_depth>& svo;
+	const LSVO<SVO_DEPTH>& svo;
 
 	const sf::Vector2i render_size;
 
