@@ -121,7 +121,7 @@ struct RayCaster
 		if (context.bounds > max_bounds)
 			return result;
 
-		const HitPoint intersection = svo.castRay(start, direction, 512U);
+		const HitPoint intersection = svo.castRay(start, direction, 0.0f, 0.0f);
 		context.complexity += intersection.complexity;
 		context.distance = intersection.distance;
 
@@ -155,7 +155,7 @@ struct RayCaster
 				for (uint32_t i(shadow_sample); i--;) {
 					const glm::vec3 light_point = light_position;// +glm::vec3(getRand(-25.0f, 25.0f), getRand(-25.0f, 25.0f), 0.0f);
 					const glm::vec3 point_to_light = glm::normalize(light_point - hit_position);
-					const HitPoint light_intersection = svo.castRay(hit_position, point_to_light, 128U);
+					const HitPoint light_intersection = svo.castRay(hit_position, point_to_light, 0.01f, 0.001f);
 
 					if (!light_intersection.cell) {
 						light_intensity = std::max(0.0f, glm::dot(point_to_light, normal));
@@ -184,14 +184,14 @@ struct RayCaster
 
 	float getAmbientOcclusion(const HitPoint& point)
 	{
-		const uint32_t ray_count = 4U;
-		const uint32_t max_iter = 16U;
+		constexpr float scaling = 1.0f / 512.0f;
+
+		const uint32_t ray_count = 3U;
 		const glm::vec3 ao_start = point.position + point.normal * eps;
 		float acc = 0.0f;
 		const glm::vec3& normal = point.normal;
 		for (uint32_t i(ray_count); i--;) {
 			glm::vec3 noise_normal = glm::vec3();
-
 			if (normal.x) {
 				noise_normal = glm::vec3(0.0f, getRand(-1.0f, 1.0f), getRand(-1.0f, 1.0f));
 			}
@@ -202,9 +202,9 @@ struct RayCaster
 				noise_normal = glm::vec3(getRand(-1.0f, 1.0f), getRand(-1.0f, 1.0f), 0.0f);
 			}
 
-			HitPoint ao_point = svo.castRay(ao_start, glm::normalize(normal + noise_normal), max_iter);
+			HitPoint ao_point = svo.castRay(ao_start, glm::normalize(normal + noise_normal) * (scaling * 0.0078125f), 0.25f, 0.0f);
 			if (!ao_point.cell) {
-				acc += 1.0f;
+				acc += 1.25f;
 			}
 		}
 
