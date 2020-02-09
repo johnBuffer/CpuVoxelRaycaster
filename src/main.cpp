@@ -99,11 +99,11 @@ int32_t main()
 		sf::Clock frame_clock;
 		const sf::Vector2i mouse_pos = sf::Mouse::getPosition(window);
 
-		/*if (mouse_control) {
+		if (mouse_control) {
 			sf::Mouse::setPosition(sf::Vector2i(win_width / 2, win_height / 2), window);
 			const float mouse_sensitivity = 0.005f;
 			controller.updateCameraView(mouse_sensitivity * glm::vec2(mouse_pos.x - win_width * 0.5f, (win_height  * 0.5f) - mouse_pos.y), camera);
-		}*/
+		}
 
 		camera.view_angle.x = 3.7f;
 		camera.view_angle.y = -0.2f;
