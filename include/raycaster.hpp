@@ -126,7 +126,7 @@ struct RayCaster
 		if (context.bounds > max_bounds)
 			return result;
 
-		const HitPoint intersection = svo.castRay(start, direction, 0.0f, 0.0f);
+		const HitPoint intersection = svo.castRay(start, direction, 0.00125f, 0.0f);
 		context.complexity += intersection.complexity;
 		context.distance = intersection.distance;
 
@@ -156,7 +156,7 @@ struct RayCaster
 				for (uint32_t i(shadow_sample); i--;) {
 					const glm::vec3 light_point = light_position;// +glm::vec3(getRand(-25.0f, 25.0f), getRand(-25.0f, 25.0f), 0.0f);
 					const glm::vec3 point_to_light = glm::normalize(light_point - hit_position);
-					const HitPoint light_intersection = svo.castRay(hit_position, point_to_light, 0.01f, 0.001f);
+					const HitPoint light_intersection = svo.castRay(hit_position, point_to_light);
 
 					if (!light_intersection.cell) {
 						light_intensity = std::max(0.0f, glm::dot(point_to_light, normal));
@@ -178,12 +178,12 @@ struct RayCaster
 	float getGlobalIllumination(const HitPoint& point)
 	{
 		constexpr float SCALE = 1.0f / 512.0f;
-		constexpr float n_normalizer = SCALE * 0.0078125f;
+		constexpr float n_normalizer = SCALE * 0.0078125f * 2.0f;
 		constexpr uint32_t ray_count = 2U;
 		const glm::vec3 gi_start = point.position + point.normal * n_normalizer;
 		float acc = 0.0f;
 		const glm::vec3& normal = point.normal;
-		constexpr float range = 1.0f;
+		constexpr float range = 1000.0f;
 		for (uint32_t i(ray_count); i--;) {
 			glm::vec3 noise_normal;
 			const float coord_1 = getRand(-range, range);
@@ -207,7 +207,7 @@ struct RayCaster
 				if (dot > 0.0f) {
 					const HitPoint gi_light_point = svo.castRay(gi_light_start, to_light, 0.5f, 0.0f);
 					if (!gi_light_point.cell) {
-						acc += 16.0f;
+						acc += 1.0f;
 					}
 				}
 			}
@@ -227,6 +227,7 @@ struct RayCaster
 
 	const sf::Color getTextureColorFromHitPoint(const HitPoint& point)
 	{
+		return sf::Color::White;
 		if (point.cell->texture == Cell::Grass) {
 			return getColorFromVoxelCoord(getTextureFromNormal(point.normal), point.voxel_coord);
 		}

@@ -55,6 +55,7 @@ struct Ray
 class Volumetric
 {
 public:
-	virtual HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, const uint32_t max_iter) const = 0;
+	virtual HitPoint castRay(const glm::vec3& position, glm::vec3 direction, const float, const float) const = 0;
 	virtual void setCell(Cell::Type type, Cell::Texture texture, uint32_t x, uint32_t y, uint32_t z) = 0;
+
 };

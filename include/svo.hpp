@@ -26,7 +26,7 @@ struct Node
 
 
 template<uint8_t N>
-class SVO : public Volumetric
+class SVO
 {
 public:
 	template<uint8_t>
@@ -59,7 +59,7 @@ public:
 		delete node;
 	}
 
-	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, const uint32_t max_iter) const override
+	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, const uint32_t max_iter) const
 	{
 		Ray ray(position, direction);
 

@@ -20,14 +20,14 @@
 
 int32_t main()
 {
-	constexpr uint32_t win_width = 1280;
-	constexpr uint32_t win_height = 720;
+	constexpr uint32_t win_width = 1600;
+	constexpr uint32_t win_height = 900;
 
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
 	window.setMouseCursorVisible(false);
-	//window.setFramerateLimit(40);
+	window.setFramerateLimit(80);
 
-	constexpr float render_scale = 0.4f;
+	constexpr float render_scale = 0.5f;
 	constexpr uint32_t RENDER_WIDTH = uint32_t(win_width  * render_scale);
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
@@ -49,7 +49,7 @@ int32_t main()
 	Volume* volume_raw = new Volume();
 
 	Camera camera;
-	camera.position = glm::vec3(256, 200, 256);;
+	camera.position = glm::vec3(256, 200, 256);
 	camera.view_angle = glm::vec2(0.0f);
 	camera.fov = 1.0f;
 
@@ -110,14 +110,19 @@ int32_t main()
 
 		event_manager.processEvents(controller, camera, raycaster);
 
-		const float light_speed = 0.0f;
-		const glm::vec3 light_position = glm::vec3(300 + 500 * cos(light_speed*time), 0, 256 + 1000 * sin(light_speed*time));
-		raycaster.setLightPosition(light_position * scale + glm::vec3(1.0f));
-
-		auto hp_camera = lsvo.castRay(camera.position * scale + glm::vec3(1.0f), camera.camera_vec, 1024);
-		if (hp_camera.cell) {
-			//std::cout << toString((hp_camera.position - glm::vec3(1.0f)) / scale) << std::endl;
+		// Computing camera's focal length based on aimed point
+		HitPoint closest_point = camera.getClosestPoint(lsvo);
+		if (closest_point.cell) {
+			camera.focal_length = closest_point.distance * size;
 		}
+		else {
+			camera.focal_length = 100.0f;
+		}
+
+		const float light_speed = 0.0f;
+		const glm::vec3 light_position = glm::vec3(0, 0, 256);
+		//const glm::vec3 light_position = glm::vec3(300 + 500 * cos(light_speed*time), 0, 256 + 1000 * sin(light_speed*time));
+		raycaster.setLightPosition(light_position * scale + glm::vec3(1.0f));
 
 		sf::Clock render_clock;
 
@@ -152,7 +157,7 @@ int32_t main()
 		}
 
 		// Add some persistence to reduce the noise
-		const float old_value_conservation = raycaster.use_samples ? 0.0f : 0.8f;
+		const float old_value_conservation = raycaster.use_samples ? 0.0f : 0.5f;
 		sf::RectangleShape cache1(sf::Vector2f(RENDER_WIDTH, RENDER_HEIGHT));
 		cache1.setFillColor(sf::Color(255 * old_value_conservation, 255 * old_value_conservation, 255 * old_value_conservation));
 		sf::RectangleShape cache2(sf::Vector2f(win_width, win_height));

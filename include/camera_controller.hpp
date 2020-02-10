@@ -1,7 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include "volumetric.hpp"
+#include "lsvo.hpp"
 #include "utils.hpp"
 
 
@@ -33,6 +33,7 @@ struct Camera
 
 	CameraRay getRay(const glm::vec2& lens_position)
 	{
+		constexpr float scale = 1.0f / 512.0f;
 		const glm::vec3 screen_position = glm::vec3(lens_position, fov);
 		const glm::vec3 ray_initial = screen_position;
 		const glm::vec3 focal_point = glm::normalize(ray_initial) * focal_length;
@@ -54,7 +55,8 @@ struct Camera
 
 	HitPoint getClosestPoint(const Volumetric& volume) const
 	{
-		return volume.castRay(position, camera_vec, 512U);
+		constexpr float scale = 1.0f / 512.0f;
+		return volume.castRay(position * scale + glm::vec3(1.0f), camera_vec, 0.0f, 0.0f);
 	}
 };
 
@@ -71,5 +73,5 @@ struct CameraController
 
 	virtual void move(const glm::vec3& move_vector, Camera& camera) = 0;
 
-	float movement_speed = 2.0f;
+	float movement_speed = 2.50f;
 };

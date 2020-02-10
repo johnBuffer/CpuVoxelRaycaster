@@ -8,6 +8,23 @@
 #include <sstream>
 
 
+static unsigned long x = 123456789, y = 362436069, z = 521288629;
+
+unsigned long xorshf96(void) {          //period 2^96-1
+	unsigned long t;
+	x ^= x << 16;
+	x ^= x >> 5;
+	x ^= x << 1;
+
+	t = x;
+	x = y;
+	y = z;
+	z = t ^ x ^ y;
+
+	return z;
+}
+
+
 void add(sf::Color& color, float f)
 {
 	color.r = std::uint8_t(std::max(std::min(255.0f, color.r + f), 0.0f));
@@ -59,7 +76,7 @@ void clamp(float& value, float min, float max)
 
 float getRand(float min, float max)
 {
-	const float rand_val = float(rand() % 100) / 100.0f;
+	const float rand_val = float(xorshf96() % 100) / 100.0f;
 	return min + (max - min) * rand_val;
 }
 
@@ -89,17 +106,13 @@ std::string toString(const glm::vec3& vec)
 	return sx.str();
 }
 
-uint32_t floatAsInt(float f)
+uint32_t floatAsInt(const float f)
 {
-	uint32_t result;
-	memcpy(&result, &f, 4u);
-	return result;
+	return *(uint32_t*)(&f);
 }
 
 
-float intAsFloat(uint32_t i)
+float intAsFloat(const uint32_t i)
 {
-	float result;
-	memcpy(&result, &i, 4u);
-	return result;
+	return *(float*)(&i);
 }

@@ -7,7 +7,7 @@
 
 
 template<uint8_t MAX_DEPTH>
-struct LSVO
+struct LSVO : public Volumetric
 {
 	LSVO(const SVO<MAX_DEPTH>& svo)
 	{
@@ -29,7 +29,7 @@ struct LSVO
 		return planes_pos * inv_direction - offset;
 	}
 
-	HitPoint castRay(const glm::vec3& position, const glm::vec3& direction, float ray_size_coef = 0.0f, float ray_size_bias = 0.0f) const
+	HitPoint castRay(const glm::vec3& position, glm::vec3 d, const float ray_size_coef = 0.0f, const float ray_size_bias = 0.0f) const override
 	{
 		HitPoint result;
 		// Const values
@@ -41,19 +41,18 @@ struct LSVO
 		// Initialize stack
 		OctreeStack stack[MAX_DEPTH];
 		// Check octant mask and modify ray accordingly
-		glm::vec3 d = direction;
 		if (std::abs(d.x) < epsilon) { d.x = copysign(epsilon, d.x); }
 		if (std::abs(d.y) < epsilon) { d.y = copysign(epsilon, d.y); }
 		if (std::abs(d.z) < epsilon) { d.z = copysign(epsilon, d.z); }
-		const glm::vec3 t_coef = 1.0f / -glm::abs(d);
-		glm::vec3 t_bias = position * t_coef;
-		uint8_t octant_mask = 7u;
-		if (d.x > 0.0f) { octant_mask ^= 1u; t_bias.x = 3.0f * t_coef.x - t_bias.x; }
-		if (d.y > 0.0f) { octant_mask ^= 2u; t_bias.y = 3.0f * t_coef.y - t_bias.y; }
-		if (d.z > 0.0f) { octant_mask ^= 4u; t_bias.z = 3.0f * t_coef.z - t_bias.z; }
+		const glm::vec3 t_coef = -1.0f / glm::abs(d);
+		glm::vec3 t_offset = position * t_coef;
+		uint8_t mirror_mask = 7u;
+		if (d.x > 0.0f) { mirror_mask ^= 1u, t_offset.x = 3.0f * t_coef.x - t_offset.x; }
+		if (d.y > 0.0f) { mirror_mask ^= 2u, t_offset.y = 3.0f * t_coef.y - t_offset.y; }
+		if (d.z > 0.0f) { mirror_mask ^= 4u, t_offset.z = 3.0f * t_coef.z - t_offset.z; }
 		// Initialize t_span
-		const glm::vec3 t0 = getT(glm::vec3(2.0f), t_coef, t_bias);
-		const glm::vec3 t1 = getT(glm::vec3(1.0f), t_coef, t_bias);
+		const glm::vec3 t0 = getT(glm::vec3(2.0f), t_coef, t_offset);
+		const glm::vec3 t1 = getT(glm::vec3(1.0f), t_coef, t_offset);
 		float t_min = std::max(t0.x, std::max(t0.y, t0.z));
 		float t_max = std::min(t1.x, std::min(t1.y, t1.z));
 		float h = t_max;
@@ -61,25 +60,25 @@ struct LSVO
 		t_max = std::min(1.0f, t_max);
 		// Init current voxel
 		uint32_t parent_id = 0u;
-		uint8_t idx = 0u;
+		uint8_t child_offset = 0u;
 		int8_t scale = SVO_MAX_DEPTH - 1U;
 		glm::vec3 pos(1.0f);
 		float scale_f = 0.5f;
 		// Initialize child position
-		const glm::vec3 t_center = getT(glm::vec3(1.5f), t_coef, t_bias);
-		if (t_center.x > t_min) { idx ^= 1u, pos.x = 1.5f; }
-		if (t_center.y > t_min) { idx ^= 2u, pos.y = 1.5f; }
-		if (t_center.z > t_min) { idx ^= 4u, pos.z = 1.5f; }
+		const glm::vec3 t_center = getT(glm::vec3(1.5f), t_coef, t_offset);
+		if (t_center.x > t_min) { child_offset ^= 1u, pos.x = 1.5f; }
+		if (t_center.y > t_min) { child_offset ^= 2u, pos.y = 1.5f; }
+		if (t_center.z > t_min) { child_offset ^= 4u, pos.z = 1.5f; }
 		uint8_t normal = 0u;
 		// Explore octree
 		while (scale < SVO_MAX_DEPTH && scale > MAX_DEPTH) {
 			++result.complexity;
 			const LNode& parent_ref = raw_data[parent_id];
 			// Compute new T span
-			const glm::vec3 t_corner = getT(pos, t_coef, t_bias);
+			const glm::vec3 t_corner = getT(pos, t_coef, t_offset);
 			const float tc_max = std::min(t_corner.x, std::min(t_corner.y, t_corner.z));
 			// Check if child exists here
-			const uint8_t child_shift = idx ^ octant_mask;
+			const uint8_t child_shift = child_offset ^ mirror_mask;
 			const uint8_t child_mask = parent_ref.child_mask >> child_shift;
 			if ((child_mask & 1u) && t_min <= t_max) {
 				if (tc_max * ray_size_coef + ray_size_bias >= scale_f) {
@@ -104,12 +103,12 @@ struct LSVO
 					h = tc_max;
 					// Update current voxel
 					parent_id += parent_ref.child_offset + child_shift;
-					idx = 0u;
+					child_offset = 0u;
 					--scale;
 					scale_f = half;
-					if (t_half.x > t_min) { idx ^= 1u, pos.x += scale_f; }
-					if (t_half.y > t_min) { idx ^= 2u, pos.y += scale_f; }
-					if (t_half.z > t_min) { idx ^= 4u, pos.z += scale_f; }
+					if (t_half.x > t_min) { child_offset ^= 1u, pos.x += scale_f; }
+					if (t_half.y > t_min) { child_offset ^= 2u, pos.y += scale_f; }
+					if (t_half.z > t_min) { child_offset ^= 4u, pos.z += scale_f; }
 					t_max = tv_max;
 					continue;
 				}
@@ -121,10 +120,10 @@ struct LSVO
 			if (t_corner.z <= tc_max) { step_mask ^= 4u, pos.z -= scale_f; }
 
 			t_min = tc_max;
-			idx ^= step_mask;
+			child_offset ^= step_mask;
 			normal = step_mask;
 
-			if (idx & step_mask) {
+			if (child_offset & step_mask) {
 				uint32_t differing_bits = 0u;
 				if (step_mask & 1u) differing_bits |= (floatAsInt(pos.x) ^ floatAsInt(pos.x + scale_f));
 				if (step_mask & 2u) differing_bits |= (floatAsInt(pos.y) ^ floatAsInt(pos.y + scale_f));
@@ -140,7 +139,7 @@ struct LSVO
 				pos.x = intAsFloat(shx << scale);
 				pos.y = intAsFloat(shy << scale);
 				pos.z = intAsFloat(shz << scale);
-				idx = (shx & 1u) | ((shy & 1u) << 1u) | ((shz & 1u) << 2u);
+				child_offset = (shx & 1u) | ((shy & 1u) << 1u) | ((shz & 1u) << 2u);
 				h = 0.0f;
 			}
 		}
@@ -148,9 +147,9 @@ struct LSVO
 		if (result.cell) {
 			result.normal = -glm::sign(d) * glm::vec3(float(normal & 1u), float(normal & 2u), float(normal & 4u));
 
-			if ((octant_mask & 1) == 0) pos.x = 3.0f - scale_f - pos.x;
-			if ((octant_mask & 2) == 0) pos.y = 3.0f - scale_f - pos.y;
-			if ((octant_mask & 4) == 0) pos.z = 3.0f - scale_f - pos.z;
+			if ((mirror_mask & 1) == 0) pos.x = 3.0f - scale_f - pos.x;
+			if ((mirror_mask & 2) == 0) pos.y = 3.0f - scale_f - pos.y;
+			if ((mirror_mask & 4) == 0) pos.z = 3.0f - scale_f - pos.z;
 
 			result.distance = t_min;
 			result.position.x = std::min(std::max(position.x + t_min * d.x, pos.x + epsilon), pos.x + scale_f - epsilon);
@@ -169,6 +168,119 @@ struct LSVO
 		}
 
 		return result;
+	}
+
+	LNode* getAtRayHit(const glm::vec3& position, glm::vec3 d)
+	{
+		HitPoint result;
+		// Const values
+		constexpr uint8_t SVO_MAX_DEPTH = 23u;
+		constexpr uint8_t DEPTH_OFFSET = SVO_MAX_DEPTH - MAX_DEPTH;
+		constexpr float SVO_SIZE = 1 << MAX_DEPTH;
+		constexpr float epsilon = 1.0f / float(1 << SVO_MAX_DEPTH);
+		const LNode* raw_data = &(data[0]);
+		// Initialize stack
+		OctreeStack stack[MAX_DEPTH];
+		// Check octant mask and modify ray accordingly
+		if (std::abs(d.x) < epsilon) { d.x = copysign(epsilon, d.x); }
+		if (std::abs(d.y) < epsilon) { d.y = copysign(epsilon, d.y); }
+		if (std::abs(d.z) < epsilon) { d.z = copysign(epsilon, d.z); }
+		const glm::vec3 t_coef = -1.0f / glm::abs(d);
+		glm::vec3 t_offset = position * t_coef;
+		uint8_t mirror_mask = 7u;
+		if (d.x > 0.0f) { mirror_mask ^= 1u, t_offset.x = 3.0f * t_coef.x - t_offset.x; }
+		if (d.y > 0.0f) { mirror_mask ^= 2u, t_offset.y = 3.0f * t_coef.y - t_offset.y; }
+		if (d.z > 0.0f) { mirror_mask ^= 4u, t_offset.z = 3.0f * t_coef.z - t_offset.z; }
+		// Initialize t_span
+		const glm::vec3 t0 = getT(glm::vec3(2.0f), t_coef, t_offset);
+		const glm::vec3 t1 = getT(glm::vec3(1.0f), t_coef, t_offset);
+		float t_min = std::max(t0.x, std::max(t0.y, t0.z));
+		float t_max = std::min(t1.x, std::min(t1.y, t1.z));
+		float h = t_max;
+		t_min = std::max(0.0f, t_min);
+		t_max = std::min(1.0f, t_max);
+		// Init current voxel
+		uint32_t parent_id = 0u;
+		uint8_t child_offset = 0u;
+		int8_t scale = SVO_MAX_DEPTH - 1U;
+		glm::vec3 pos(1.0f);
+		float scale_f = 0.5f;
+		// Initialize child position
+		const glm::vec3 t_center = getT(glm::vec3(1.5f), t_coef, t_offset);
+		if (t_center.x > t_min) { child_offset ^= 1u, pos.x = 1.5f; }
+		if (t_center.y > t_min) { child_offset ^= 2u, pos.y = 1.5f; }
+		if (t_center.z > t_min) { child_offset ^= 4u, pos.z = 1.5f; }
+		uint8_t normal = 0u;
+		// Explore octree
+		while (scale < SVO_MAX_DEPTH && scale > MAX_DEPTH) {
+			++result.complexity;
+			const LNode& parent_ref = raw_data[parent_id];
+			// Compute new T span
+			const glm::vec3 t_corner = getT(pos, t_coef, t_offset);
+			const float tc_max = std::min(t_corner.x, std::min(t_corner.y, t_corner.z));
+			// Check if child exists here
+			const uint8_t child_shift = child_offset ^ mirror_mask;
+			const uint8_t child_mask = parent_ref.child_mask >> child_shift;
+			if ((child_mask & 1u) && t_min <= t_max) {
+				const float tv_max = std::min(t_max, tc_max);
+				const float half = scale_f * 0.5f;
+				const glm::vec3 t_half = half * t_coef + t_corner;
+				if (t_min <= tv_max) {
+					const uint8_t leaf_mask = parent_ref.leaf_mask >> child_shift;
+					// We hit a leaf
+					if (leaf_mask & 1u) {
+						return &parent_ref;
+					}
+					// Eventually add parent to the stack
+					if (tc_max < h) {
+						stack[scale - DEPTH_OFFSET].parent_index = parent_id;
+						stack[scale - DEPTH_OFFSET].t_max = t_max;
+					}
+					h = tc_max;
+					// Update current voxel
+					parent_id += parent_ref.child_offset + child_shift;
+					child_offset = 0u;
+					--scale;
+					scale_f = half;
+					if (t_half.x > t_min) { child_offset ^= 1u, pos.x += scale_f; }
+					if (t_half.y > t_min) { child_offset ^= 2u, pos.y += scale_f; }
+					if (t_half.z > t_min) { child_offset ^= 4u, pos.z += scale_f; }
+					t_max = tv_max;
+					continue;
+				}
+			} // End of depth exploration
+
+			uint32_t step_mask = 0u;
+			if (t_corner.x <= tc_max) { step_mask ^= 1u, pos.x -= scale_f; }
+			if (t_corner.y <= tc_max) { step_mask ^= 2u, pos.y -= scale_f; }
+			if (t_corner.z <= tc_max) { step_mask ^= 4u, pos.z -= scale_f; }
+
+			t_min = tc_max;
+			child_offset ^= step_mask;
+			normal = step_mask;
+
+			if (child_offset & step_mask) {
+				uint32_t differing_bits = 0u;
+				if (step_mask & 1u) differing_bits |= (floatAsInt(pos.x) ^ floatAsInt(pos.x + scale_f));
+				if (step_mask & 2u) differing_bits |= (floatAsInt(pos.y) ^ floatAsInt(pos.y + scale_f));
+				if (step_mask & 4u) differing_bits |= (floatAsInt(pos.z) ^ floatAsInt(pos.z + scale_f));
+				scale = (floatAsInt((float)differing_bits) >> SVO_MAX_DEPTH) - 127u;
+				scale_f = intAsFloat((scale - SVO_MAX_DEPTH + 127u) << SVO_MAX_DEPTH);
+				OctreeStack entry = stack[scale - DEPTH_OFFSET];
+				parent_id = entry.parent_index;
+				t_max = entry.t_max;
+				const uint32_t shx = floatAsInt(pos.x) >> scale;
+				const uint32_t shy = floatAsInt(pos.y) >> scale;
+				const uint32_t shz = floatAsInt(pos.z) >> scale;
+				pos.x = intAsFloat(shx << scale);
+				pos.y = intAsFloat(shy << scale);
+				pos.z = intAsFloat(shz << scale);
+				child_offset = (shx & 1u) | ((shy & 1u) << 1u) | ((shz & 1u) << 2u);
+				h = 0.0f;
+			}
+		}
+
+		return nullptr;
 	}
 
 	std::vector<LNode> data;
