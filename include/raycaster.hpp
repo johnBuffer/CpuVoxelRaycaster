@@ -138,7 +138,7 @@ struct RayCaster
 
 			sf::Color albedo = sf::Color::Black;
 			if (cell.type == Cell::Solid) {
-				albedo = getTextureColorFromHitPoint(intersection);
+				albedo = getColorFromNormal(intersection.normal);// getTextureColorFromHitPoint(intersection);
 				result.color = albedo;
 			}
 			else if (cell.type == Cell::Mirror) {
@@ -149,8 +149,7 @@ struct RayCaster
 				mult(result.color, 0.8f);
 			}
 
-			const uint32_t shadow_sample = use_samples ? 4U : 1U;
-
+			/*const uint32_t shadow_sample = use_samples ? 4U : 1U;
 			float light_intensity = 0.0f;
 			if (cell.texture != Cell::Red) {
 				for (uint32_t i(shadow_sample); i--;) {
@@ -166,7 +165,7 @@ struct RayCaster
 
 			const float gi_intensity = use_gi ? getGlobalIllumination(intersection) : 0.0f;
 
-			mult(result.color, std::min(1.0f, std::max(0.0f, light_intensity + gi_intensity)));
+			mult(result.color, std::min(1.0f, std::max(0.0f, light_intensity + gi_intensity)));*/
 		}
 
 		/*const int32_t c = context.complexity;
@@ -252,7 +251,7 @@ struct RayCaster
 
 	const sf::Color getColorFromNormal(const glm::vec3& normal)
 	{
-		return sf::Color::White;
+		//return sf::Color::White;
 		if (normal.x) {
 			return sf::Color::Red;
 		}

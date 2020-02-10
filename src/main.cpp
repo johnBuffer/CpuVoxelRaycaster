@@ -20,14 +20,14 @@
 
 int32_t main()
 {
-	constexpr uint32_t win_width = 1600;
-	constexpr uint32_t win_height = 900;
+	constexpr uint32_t win_width = 1280;
+	constexpr uint32_t win_height = 720;
 
 	sf::RenderWindow window(sf::VideoMode(win_width, win_height), "Voxels", sf::Style::Default);
 	window.setMouseCursorVisible(false);
-	window.setFramerateLimit(80);
+	//window.setFramerateLimit(24);
 
-	constexpr float render_scale = 0.5f;
+	constexpr float render_scale = 0.75f;
 	constexpr uint32_t RENDER_WIDTH = uint32_t(win_width  * render_scale);
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
@@ -157,7 +157,7 @@ int32_t main()
 		}
 
 		// Add some persistence to reduce the noise
-		const float old_value_conservation = raycaster.use_samples ? 0.0f : 0.5f;
+		const float old_value_conservation = raycaster.use_samples ? 0.0f : 0.1f;
 		sf::RectangleShape cache1(sf::Vector2f(RENDER_WIDTH, RENDER_HEIGHT));
 		cache1.setFillColor(sf::Color(255 * old_value_conservation, 255 * old_value_conservation, 255 * old_value_conservation));
 		sf::RectangleShape cache2(sf::Vector2f(win_width, win_height));
