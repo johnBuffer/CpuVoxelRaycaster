@@ -39,7 +39,7 @@ struct LSVO : public Volumetric
 		constexpr float SVO_SIZE = 1 << MAX_DEPTH;
 		constexpr float EPS = 1.0f / float(1 << SVO_MAX_DEPTH);
 		// Initialize stack
-		OctreeStack stack[MAX_DEPTH];
+		OctreeStack stack[MAX_DEPTH + 1u];
 		// Check octant mask and modify ray accordingly
 		if (std::abs(d.x) < EPS) { d.x = copysign(EPS, d.x); }
 		if (std::abs(d.y) < EPS) { d.y = copysign(EPS, d.y); }

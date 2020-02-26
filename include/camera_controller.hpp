@@ -73,5 +73,5 @@ struct CameraController
 
 	virtual void move(const glm::vec3& move_vector, Camera& camera) = 0;
 
-	float movement_speed = 2.50f;
+	float movement_speed = 1.0f;
 };

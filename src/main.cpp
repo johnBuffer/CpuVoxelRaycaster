@@ -4,6 +4,7 @@
 #include <glm/gtx/rotate_vector.hpp>
 #include <sstream>
 #include <fstream>
+#include <dynamic_blur.hpp>
 
 #include "svo.hpp"
 #include "grid_3d.hpp"
@@ -36,6 +37,9 @@ int32_t main()
 	render_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
 	denoised_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
 	bloom_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
+
+	Blur blur(win_width, win_height, 1.0f);
+	
 	render_tex.setSmooth(false);
 
 	const float body_radius = 0.4f;

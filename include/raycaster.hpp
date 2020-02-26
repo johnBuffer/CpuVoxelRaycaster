@@ -49,8 +49,8 @@ struct RayCaster
 		, render_size(render_size_)
 	{
 		render_image.create(render_size.x, render_size.y);
-		image_side.loadFromFile("../res/grass_side_16x16.bmp");
-		image_top.loadFromFile("../res/grass_top_16x16.bmp");
+		image_side.loadFromFile("../../res/grass_side_16x16.bmp");
+		image_top.loadFromFile("../../res/grass_top_16x16.bmp");
 
 		colors.resize(render_size_.x);
 		for (auto& v : colors) {
@@ -130,7 +130,7 @@ struct RayCaster
 		context.complexity += intersection.complexity;
 		context.distance = intersection.distance;
 
-		if (intersection.cell) {
+		/*if (intersection.cell) {
 			const glm::vec3& normal = intersection.normal;
 			result.distance = intersection.distance;
 			const Cell& cell = *(intersection.cell);
@@ -138,7 +138,7 @@ struct RayCaster
 
 			sf::Color albedo = sf::Color::Black;
 			if (cell.type == Cell::Solid) {
-				albedo = getColorFromNormal(intersection.normal);// getTextureColorFromHitPoint(intersection);
+				albedo = getColorFromNormal(intersection.normal);//getTextureColorFromHitPoint(intersection);
 				result.color = albedo;
 			}
 			else if (cell.type == Cell::Mirror) {
@@ -149,9 +149,9 @@ struct RayCaster
 				mult(result.color, 0.8f);
 			}
 
-			/*const uint32_t shadow_sample = use_samples ? 4U : 1U;
-			float light_intensity = 0.0f;
-			if (cell.texture != Cell::Red) {
+			const uint32_t shadow_sample = use_samples ? 4U : 1U;
+			float light_intensity = 1.0f;
+			if (cell.texture != Cell::Red && 0) {
 				for (uint32_t i(shadow_sample); i--;) {
 					const glm::vec3 light_point = light_position;// +glm::vec3(getRand(-25.0f, 25.0f), getRand(-25.0f, 25.0f), 0.0f);
 					const glm::vec3 point_to_light = glm::normalize(light_point - hit_position);
@@ -165,12 +165,12 @@ struct RayCaster
 
 			const float gi_intensity = use_gi ? getGlobalIllumination(intersection) : 0.0f;
 
-			mult(result.color, std::min(1.0f, std::max(0.0f, light_intensity + gi_intensity)));*/
-		}
+			mult(result.color, std::min(1.0f, std::max(0.0f, light_intensity + gi_intensity)));
+		}*/
 
-		/*const int32_t c = context.complexity;
+		const int32_t c = context.complexity;
 		sf::Color color(c, c, c);
-		result.color = color;*/
+		result.color = color;
 		return result;
 	}
 
@@ -178,7 +178,7 @@ struct RayCaster
 	{
 		constexpr float SCALE = 1.0f / 512.0f;
 		constexpr float n_normalizer = SCALE * 0.0078125f * 2.0f;
-		constexpr uint32_t ray_count = 2U;
+		constexpr uint32_t ray_count = 1U;
 		const glm::vec3 gi_start = point.position + point.normal * n_normalizer;
 		float acc = 0.0f;
 		const glm::vec3& normal = point.normal;
