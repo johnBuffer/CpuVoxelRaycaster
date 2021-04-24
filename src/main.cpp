@@ -4,13 +4,12 @@
 #include <glm/gtx/rotate_vector.hpp>
 #include <sstream>
 #include <fstream>
-#include <dynamic_blur.hpp>
 
 #include "svo.hpp"
 #include "grid_3d.hpp"
 #include "utils.hpp"
-#include "swarm.hpp"
-#include "FastNoise.h"
+#include "swarm/swarm.hpp"
+#include "fastnoise/FastNoise.h"
 #include "raycaster.hpp"
 #include "fly_controller.hpp"
 #include "replay.hpp"
@@ -33,12 +32,8 @@ int32_t main()
 	constexpr uint32_t RENDER_HEIGHT = uint32_t(win_height * render_scale);
 	sf::RenderTexture render_tex;
 	sf::RenderTexture denoised_tex;
-	sf::RenderTexture bloom_tex;
 	render_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
 	denoised_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
-	bloom_tex.create(RENDER_WIDTH, RENDER_HEIGHT);
-
-	Blur blur(win_width, win_height, 1.0f);
 	
 	render_tex.setSmooth(false);
 
@@ -61,6 +56,8 @@ int32_t main()
 
 	EventManager event_manager(window);
 
+	// Building SVO
+	std::cout << "Building SVO..." << std::endl;
 	FastNoise myNoise;
 	myNoise.SetNoiseType(FastNoise::SimplexFractal);
 	for (uint32_t x = 0; x < grid_size_x; x++) {
@@ -71,9 +68,8 @@ int32_t main()
 			float ratio = std::pow(1.0f - sqrt(amp_x * amp_x + amp_z * amp_z) / (10.0f * grid_size_x), 256.0f);
 			int32_t height = int32_t(64.0f * myNoise.GetNoise(float(0.75f * x), float(0.75f * z)) + 32);
 
-			volume_raw->setCell(Cell::Solid, Cell::None, x, 256, z);
-			//volume.setCell(Cell::Solid, Cell::Grass, x, 0, z);
-			for (int y(1); y < std::min(max_height, height); ++y) {
+			const int32_t ground_level = 16;
+			for (int y(1); y < std::max(ground_level, std::min(max_height, height)); ++y) {
 				volume_raw->setCell(Cell::Solid, Cell::Grass, x, y + 256, z);
 			}
 		}
@@ -85,6 +81,7 @@ int32_t main()
 
 	constexpr float scale = 1.0f / size;
 	LSVO<max_depth> lsvo(*volume_raw);
+	std::cout << "Done." << std::endl;
 
 	delete volume_raw;
 
@@ -124,7 +121,7 @@ int32_t main()
 		}
 
 		const float light_speed = 0.0f;
-		const glm::vec3 light_position = glm::vec3(0, 0, 256);
+		const glm::vec3 light_position = glm::vec3(-200, -1000, -300);
 		//const glm::vec3 light_position = glm::vec3(300 + 500 * cos(light_speed*time), 0, 256 + 1000 * sin(light_speed*time));
 		raycaster.setLightPosition(light_position * scale + glm::vec3(1.0f));
 
